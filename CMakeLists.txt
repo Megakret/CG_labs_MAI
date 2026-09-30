@@ -2,12 +2,16 @@ cmake_minimum_required(VERSION 3.20)
 include(FetchContent)
 
 project(vulkan-starter-app LANGUAGES C CXX)
-
+#set lab to compile
+set(LAB Lab1)
 add_executable(${PROJECT_NAME}
 source/main.cpp
 source/graphics_internal.cpp
-source/application.cpp
-source/graphics.cpp
+source/${LAB}/application.cpp
+source/${LAB}/graphics.cpp
+)
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+  ${LAB}
 )
 
 if(LINUX)
