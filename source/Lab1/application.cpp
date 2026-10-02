@@ -7,11 +7,13 @@
 
 #include "../graphics_internal.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "graphics.hpp"
 namespace application {
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 VkBuffer vk_vertex_buffer;
 VmaAllocation vk_vertex_buffer_allocation;
 graphics::Vertex *vk_vertex_buffer_memory;
@@ -169,18 +171,54 @@ void shutdown() {
 }
 std::vector<bool> states{true, true, true};
 double prev_time = 0;
-const float FOV = 70.0f;
-const float ROTATION_COEF = 1.0f;
+const int PROJECTION_MATRIX_ID = 0;
+const int ORTOGRAPHIC_MATRIX_ID = 1;
+int g_matrix_to_use = 0;
+float g_figure_position[3] = {0,0,-20.0f};
+float g_figure_scaling[3] = {1,1,1};
+float g_figure_rotation[3] = {0,0,0};
+float g_fov = 70.0f;
 void update([[maybe_unused]] double time) {
   auto &context = graphics::internal::context;
-  glm::mat4 perspective = glm::perspectiveFov(
-      FOV, static_cast<float>(context.swapchain_extent.width),
-      static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
-  glm::mat4 model = glm::translate(perspective, glm::vec3(glm::vec3(0.0f, 0.0f, -20.0f)));
-  glm::mat4 rotation = glm::rotate(model, static_cast<float>(time) * ROTATION_COEF, glm::vec3(0.0f, -0.5f, 0.5f));
-  glm::mat4 total_matrix = rotation;
+  ImGui_update(time);
+  glm::mat4 to_2d_matrix;
+  if(g_matrix_to_use == PROJECTION_MATRIX_ID){
+      to_2d_matrix = glm::perspectiveFov(
+          glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
+          static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
+  }else if(g_matrix_to_use == ORTOGRAPHIC_MATRIX_ID){
+          const float w = static_cast<float>(context.swapchain_extent.width);
+          const float h = static_cast<float>(context.swapchain_extent.height);
+          const float aspect = w / h;
+          const float half_height = 10.0f;
+          const float half_width = half_height * aspect;
+      to_2d_matrix = glm::orthoZO(-half_width, half_width, -half_height, half_height, 0.1f, 100.0f);
+  }else{
+      return;
+  }
+  glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::make_vec3(g_figure_position));
+  glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::make_vec3(g_figure_scaling));
+  glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(g_figure_rotation[0]), glm::vec3(1.0f,0.0f,0.0f));
+  rotation = glm::rotate(rotation, glm::radians(g_figure_rotation[1]), glm::vec3(0.0f,1.0f,0.0f));
+  rotation = glm::rotate(rotation, glm::radians(g_figure_rotation[2]), glm::vec3(0.0f,0.0f,1.0f));
+  glm::mat4 total_matrix = to_2d_matrix*model*scaling*rotation;
   memcpy(vk_uniform_buffer_memory->matrix, glm::value_ptr(total_matrix),
          sizeof(GlobalUniforms::matrix));
+}
+void ImGui_update(double time){
+    ImGui::ShowDemoWindow();
+    ImGui::Begin("Awesome engine configuration");
+    if(ImGui::CollapsingHeader("2D Projection settings")){
+        ImGui::RadioButton("Projection matrix", &g_matrix_to_use, PROJECTION_MATRIX_ID); ImGui::SameLine();
+        ImGui::RadioButton("Ortographic matrix", &g_matrix_to_use, ORTOGRAPHIC_MATRIX_ID);
+        ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
+    }
+    if(ImGui::CollapsingHeader("Figure parameters")){
+        ImGui::InputFloat3("Position of the center", g_figure_position);
+        ImGui::InputFloat3("Scaling", g_figure_scaling);
+        ImGui::InputFloat3("Euler angle", g_figure_rotation);
+    }
+    ImGui::End();
 }
 
 void render(const graphics::internal::FrameData &fd) {
