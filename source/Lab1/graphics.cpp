@@ -1,6 +1,7 @@
 #include "graphics.hpp"
 #include "../graphics_internal.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -77,9 +78,22 @@ void init_pipelines() {
   pipelineBuilder.shader_stages.push_back(pipeline_shader_stage_create_info(
       VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
 
-  // vertex input controls how to read vertices from vertex buffers. We aren't
-  // using it yet
-  pipelineBuilder.vertex_input_info = vertex_input_state_create_info();
+  const std::array<VkVertexInputBindingDescription, 1> bindings{
+      VkVertexInputBindingDescription{.binding = 0,
+                                      .stride = sizeof(Vertex),
+                                      .inputRate =
+                                          VK_VERTEX_INPUT_RATE_VERTEX}};
+  const std::array<VkVertexInputAttributeDescription, 2> attributes{
+      VkVertexInputAttributeDescription{.location = 0,
+                                        .binding = 0,
+                                        .format = VK_FORMAT_R32G32B32_SFLOAT,
+                                        .offset = offsetof(Vertex, position)},
+      VkVertexInputAttributeDescription{.location = 1,
+                                        .binding = 0,
+                                        .format = VK_FORMAT_R32G32B32_SFLOAT,
+                                        .offset = offsetof(Vertex, color)}};
+  pipelineBuilder.vertex_input_info = vertex_input_state_create_info(
+      std::span(bindings), std::span(attributes));
 
   // input assembly is the configuration for drawing triangle lists, strips, or
   // individual points. we are just going to draw triangle list
@@ -134,14 +148,15 @@ pipeline_shader_stage_create_info(VkShaderStageFlagBits stage,
   info.pName = "main";
   return info;
 }
-VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info() {
+VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info(
+    std::span<const VkVertexInputBindingDescription> bindings,
+    std::span<const VkVertexInputAttributeDescription> attributes) {
   VkPipelineVertexInputStateCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  info.pNext = nullptr;
-
-  // no vertex bindings or attributes
-  info.vertexBindingDescriptionCount = 0;
-  info.vertexAttributeDescriptionCount = 0;
+  info.pVertexBindingDescriptions = bindings.data();
+  info.vertexBindingDescriptionCount = bindings.size();
+  info.pVertexAttributeDescriptions = attributes.data();
+  info.vertexAttributeDescriptionCount = attributes.size();
   return info;
 }
 

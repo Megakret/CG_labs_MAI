@@ -1,3 +1,4 @@
+#include <span>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -9,6 +10,10 @@ extern VkPipeline triangle_pipeline;
 
 bool load_shared_module(const char *filepath, VkShaderModule *vk_shared_module);
 void init_pipelines();
+struct Vertex {
+  float position[3];
+  float color[3];
+};
 
 class PipelineBuilder {
 public:
@@ -27,7 +32,9 @@ public:
 VkPipelineShaderStageCreateInfo
 pipeline_shader_stage_create_info(VkShaderStageFlagBits stage,
                                   VkShaderModule shaderModule);
-VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info();
+VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info(
+    std::span<const VkVertexInputBindingDescription> bindings,
+    std::span<const VkVertexInputAttributeDescription> attributes);
 VkPipelineInputAssemblyStateCreateInfo
 input_assembly_create_info(VkPrimitiveTopology topology);
 VkPipelineRasterizationStateCreateInfo

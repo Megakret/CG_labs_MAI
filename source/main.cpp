@@ -75,7 +75,6 @@ int main() {
     status = EXIT_FAILURE;
     goto err_application_init;
   }
-
   while (!glfwWindowShouldClose(glfw_window)) {
     const double time = glfwGetTime();
 

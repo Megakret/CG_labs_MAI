@@ -1,14 +1,46 @@
 #include "application.hpp"
 
+#include <cstring>
 #include <imgui.h>
+#include <iostream>
 #include <vulkan/vulkan_core.h>
 
 #include "../graphics_internal.hpp"
 #include "graphics.hpp"
 namespace application {
-
+VkBuffer vk_vertex_buffer;
+VmaAllocation vk_vertex_buffer_allocation;
+graphics::Vertex *vk_vertex_buffer_memory;
+std::vector<graphics::Vertex> vertices{
+    {{-1.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+    {{0.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+};
+float phi = 0;
 bool initialize() {
+  auto &context = graphics::internal::context;
   graphics::init_pipelines();
+  const VkBufferCreateInfo buffer_info{
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .size = vertices.size() * sizeof(graphics::Vertex),
+      .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
+  const VmaAllocationCreateInfo vertex_buffer_allocation_info{
+      .flags = (VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT),
+      .usage = VMA_MEMORY_USAGE_AUTO};
+  if (vmaCreateBuffer(context.allocator, &buffer_info,
+                      &vertex_buffer_allocation_info, &vk_vertex_buffer,
+                      &vk_vertex_buffer_allocation, nullptr) != VK_SUCCESS) {
+    std::cerr << "Failed to create and allocate a vertex buffer\n";
+    return false;
+  }
+  if (vmaMapMemory(context.allocator, vk_vertex_buffer_allocation,
+                   reinterpret_cast<void **>(&vk_vertex_buffer_memory)) !=
+      VK_SUCCESS) {
+    std::cerr << "Failed to map vertex buffer memory\n";
+    return false;
+  }
   return true;
 }
 
@@ -18,9 +50,34 @@ void shutdown() {
   vkDestroyPipeline(context.device, graphics::triangle_pipeline, nullptr);
   vkDestroyPipelineLayout(context.device, graphics::triangle_pipeline_layout,
                           nullptr);
+  vmaUnmapMemory(context.allocator, vk_vertex_buffer_allocation);
+  vmaDestroyBuffer(context.allocator, vk_vertex_buffer,
+                   vk_vertex_buffer_allocation);
 }
-
-void update([[maybe_unused]] double time) {}
+std::vector<bool> states{true, true, true};
+double prev_time = 0;
+void update([[maybe_unused]] double time) {
+  if (prev_time == 0) {
+    prev_time = time;
+  }
+  double dt = time - prev_time;
+  prev_time = time;
+  for (auto &vertice : vertices) {
+    for (int i = 0; i < 3; i++) {
+      if (states[i]) {
+        vertice.color[i] += 1.0f * dt;
+      } else {
+        vertice.color[i] -= 1.0f * dt;
+      }
+      if (vertice.color[i] > 1.0f) {
+        states[i] = false;
+      }
+      if (vertice.color[i] < 0.0f) {
+        states[i] = true;
+      }
+    }
+  }
+}
 
 void render(const graphics::internal::FrameData &fd) {
   auto &context = graphics::internal::context;
@@ -48,11 +105,16 @@ void render(const graphics::internal::FrameData &fd) {
       .maxDepth = 1,
   };
   const VkRect2D scissor{.extent = context.swapchain_extent};
+
   vkCmdSetViewport(fd.command_buffer, 0, 1, &viewport);
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
-  vkCmdDraw(fd.command_buffer, 3, 1, 0, 0);
+  memcpy(vk_vertex_buffer_memory, vertices.data(),
+         vertices.size() * sizeof(graphics::Vertex));
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(fd.command_buffer, 0, 1, &vk_vertex_buffer, &offset);
+  vkCmdDraw(fd.command_buffer, vertices.size(), 1, 0, 0);
 
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
