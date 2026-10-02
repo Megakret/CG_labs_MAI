@@ -15,51 +15,42 @@ namespace application {
 VkBuffer vk_vertex_buffer;
 VmaAllocation vk_vertex_buffer_allocation;
 graphics::Vertex *vk_vertex_buffer_memory;
-// Unit cube (half-extent 1, spanning -1..1), 36 vertices:
-// 6 faces * 2 triangles * 3 vertices, one color per face.
+// Regular octahedron (vertices at +/-1 on each axis), 24 vertices:
+// 8 triangular faces * 3 vertices, one color per face. Faces are wound
+// CCW when viewed from outside.
 std::vector<graphics::Vertex> vertices{
-    // +Z (front) - magenta
-    {{-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
-    {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
-    {{-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
-    {{-1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}},
-    // -Z (back) - cyan
-    {{1.0f, -1.0f, -1.0f}, {0.0f, 1.0f, 1.0f}},
-    {{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f, 1.0f}},
-    {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 1.0f}},
-    {{1.0f, -1.0f, -1.0f}, {0.0f, 1.0f, 1.0f}},
-    {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 1.0f}},
-    // +X (right) - red
-    {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-    // -X (left) - green
-    {{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}},
-    {{-1.0f, -1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-    {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-    {{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}},
-    {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-    {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}},
-    // +Y (top) - blue
-    {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, 1.0f}},
-    // -Y (bottom) - yellow
-    {{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{-1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
+    // +X +Y +Z - red
+    {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+    {{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+    {{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+    // +X -Y +Z - yellow
+    {{1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}},
+    {{0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
+    {{0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 0.0f}},
+    // -X -Y +Z - green
+    {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{0.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+    // -X +Y +Z - cyan
+    {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},
+    {{0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 1.0f}},
+    {{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},
+    // -X -Y -Z - blue
+    {{-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+    {{0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 1.0f}},
+    {{0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+    // +X -Y -Z - magenta
+    {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},
+    {{0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},
+    {{0.0f, 0.0f, -1.0f}, {1.0f, 0.0f, 1.0f}},
+    // -X +Y -Z - orange
+    {{-1.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.0f}},
+    {{0.0f, 1.0f, 0.0f}, {1.0f, 0.5f, 0.0f}},
+    {{0.0f, 0.0f, -1.0f}, {1.0f, 0.5f, 0.0f}},
+    // +X +Y -Z - purple
+    {{1.0f, 0.0f, 0.0f}, {0.5f, 0.0f, 1.0f}},
+    {{0.0f, 0.0f, -1.0f}, {0.5f, 0.0f, 1.0f}},
+    {{0.0f, 1.0f, 0.0f}, {0.5f, 0.0f, 1.0f}},
 };
 struct GlobalUniforms {
   float matrix[4][4];
@@ -179,13 +170,15 @@ void shutdown() {
 std::vector<bool> states{true, true, true};
 double prev_time = 0;
 const float FOV = 70.0f;
+const float ROTATION_COEF = 1.0f;
 void update([[maybe_unused]] double time) {
   auto &context = graphics::internal::context;
   glm::mat4 perspective = glm::perspectiveFov(
       FOV, static_cast<float>(context.swapchain_extent.width),
       static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
-  glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(glm::vec3(0.0f, 0.0f, -20.0f)));
-  glm::mat4 total_matrix = perspective * model;
+  glm::mat4 model = glm::translate(perspective, glm::vec3(glm::vec3(0.0f, 0.0f, -20.0f)));
+  glm::mat4 rotation = glm::rotate(model, static_cast<float>(time) * ROTATION_COEF, glm::vec3(0.0f, -0.5f, 0.5f));
+  glm::mat4 total_matrix = rotation;
   memcpy(vk_uniform_buffer_memory->matrix, glm::value_ptr(total_matrix),
          sizeof(GlobalUniforms::matrix));
 }
@@ -197,7 +190,7 @@ void render(const graphics::internal::FrameData &fd) {
   cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   cmd_begin_info.pNext = nullptr;
   VkClearValue clearValues []{
-      {.color = {{0.0f, 0.0f, 120.0f, 1.0f}}},
+      {.color = {{0.0f, 0.0f, 0.1f, 1.0f}}},
       {.depthStencil = {1.0f, 0}},
   };
   VkRenderPassBeginInfo rp_info{

@@ -482,10 +482,13 @@ bool initialize(GLFWwindow *const window) {
   }
 
   vkb::SwapchainBuilder sb(vkb_device);
-
+  int width;
+  int height;
+  glfwGetWindowSize(window, &width, &height);
   auto sb_result = sb.use_default_format_selection()
                        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
                        .use_default_image_usage_flags()
+                       .set_desired_extent(width, height)
                        .build();
   if (!sb_result) {
     std::cerr << sb_result.error().message() << '\n';
