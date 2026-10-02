@@ -230,6 +230,17 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
   viewportState.scissorCount = 1;
   viewportState.pScissors = &scissor;
 
+  // in graphics::PipelineBuilder::build_pipeline
+  static const VkDynamicState dynamic_states[] = {
+      VK_DYNAMIC_STATE_VIEWPORT,
+      VK_DYNAMIC_STATE_SCISSOR,
+  };
+
+  VkPipelineDynamicStateCreateInfo dynamic_state{};
+  dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamic_state.dynamicStateCount = 2;
+  dynamic_state.pDynamicStates = dynamic_states;
+
   // setup dummy color blending. We aren't using transparent objects yet
   // the blending is just "no blend", but we do write to the color attachment
   VkPipelineColorBlendStateCreateInfo colorBlending = {};
@@ -257,6 +268,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
   pipelineInfo.renderPass = pass;
   pipelineInfo.subpass = 0;
   pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+  pipelineInfo.pDynamicState = &dynamic_state;
 
   // it's easy to error out on create graphics pipeline, so we handle it a bit
   // better than the common VK_CHECK case

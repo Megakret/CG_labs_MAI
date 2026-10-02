@@ -16,8 +16,8 @@
 
 namespace {
 
-constexpr int32_t default_window_width = 1280;
-constexpr int32_t default_window_height = 720;
+constexpr int32_t default_window_width = 1920;
+constexpr int32_t default_window_height = 1080;
 
 constexpr char default_window_title[] = "Vulkan Starter App";
 
