@@ -7,6 +7,7 @@ set(LAB Lab1)
 add_executable(${PROJECT_NAME}
 source/main.cpp
 source/graphics_internal.cpp
+source/${LAB}/animation.cpp
 source/${LAB}/application.cpp
 source/${LAB}/graphics.cpp
 )

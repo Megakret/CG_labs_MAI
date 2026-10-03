@@ -3,15 +3,17 @@
 #include <cstring>
 #include <imgui.h>
 #include <iostream>
-#include <vulkan/vulkan_core.h>
 
+#include <vulkan/vulkan_core.h>
 #include "../graphics_internal.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/gtc/type_ptr.hpp"
+
 #include "graphics.hpp"
+#include "animation.hpp"
 namespace application {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 VkBuffer vk_vertex_buffer;
@@ -62,6 +64,21 @@ VmaAllocation vk_uniform_buffer_allocation;
 GlobalUniforms *vk_uniform_buffer_memory;
 VkDescriptorPool vk_descriptor_pool;
 VkDescriptorSet vk_uniform_descriptor_set;
+
+
+animation::AnimationEngine g_engine;
+void SetStarterAnimation(){
+    g_engine.AddStep();
+    g_engine.AddStep();
+    auto &step1 = g_engine.GetStepRef(0);
+    step1.p1 = {-5, 5, -20};
+    step1.p2 = {-2.5, 0, -17.5};
+    step1.p3 = {0, 5, -15};
+    auto &step2 = g_engine.GetStepRef(1);
+    step2.p1 = {0,5,-15};
+    step2.p2 = {2.5,0,-15};
+    step2.p3 = {5,5,-10};
+}
 bool initialize() {
   auto &context = graphics::internal::context;
   graphics::init_pipelines();
@@ -154,6 +171,7 @@ bool initialize() {
   };
   vkUpdateDescriptorSets(context.device, static_cast<uint32_t>(sizeof(descriptor_writes) / sizeof(descriptor_writes[0])), descriptor_writes, 0, nullptr);
 
+  SetStarterAnimation();
   return true;
 }
 
@@ -174,12 +192,20 @@ double prev_time = 0;
 const int PROJECTION_MATRIX_ID = 0;
 const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
-float g_figure_position[3] = {0,0,-20.0f};
-float g_figure_scaling[3] = {1,1,1};
-float g_figure_rotation[3] = {0,0,0};
+animation::FigureState g_figure_state{
+    .position = {0,0,-20.0f},
+   .rotation = {0,0,0},
+   .scale = {1,1,1}
+};
 float g_fov = 70.0f;
+float g_animation_speed = 1.0f;
+bool g_animation_paused = false;
+bool g_is_animation_looped = false;
+double g_prev_time = 0;
 void update([[maybe_unused]] double time) {
   auto &context = graphics::internal::context;
+  double delta_time = time - g_prev_time;
+  g_prev_time = time;
   ImGui_update(time);
   glm::mat4 to_2d_matrix;
   if(g_matrix_to_use == PROJECTION_MATRIX_ID){
@@ -196,11 +222,14 @@ void update([[maybe_unused]] double time) {
   }else{
       return;
   }
-  glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::make_vec3(g_figure_position));
-  glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::make_vec3(g_figure_scaling));
-  glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(g_figure_rotation[0]), glm::vec3(1.0f,0.0f,0.0f));
-  rotation = glm::rotate(rotation, glm::radians(g_figure_rotation[1]), glm::vec3(0.0f,1.0f,0.0f));
-  rotation = glm::rotate(rotation, glm::radians(g_figure_rotation[2]), glm::vec3(0.0f,0.0f,1.0f));
+  if(!g_animation_paused){
+      g_engine.Proceed(g_figure_state, g_animation_speed, delta_time, g_is_animation_looped);
+  }
+  glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::make_vec3(g_figure_state.position.data()));
+  glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::make_vec3(g_figure_state.scale.data()));
+  glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(g_figure_state.rotation[0]), glm::vec3(1.0f,0.0f,0.0f));
+  rotation = glm::rotate(rotation, glm::radians(g_figure_state.rotation[1]), glm::vec3(0.0f,1.0f,0.0f));
+  rotation = glm::rotate(rotation, glm::radians(g_figure_state.rotation[2]), glm::vec3(0.0f,0.0f,1.0f));
   glm::mat4 total_matrix = to_2d_matrix*model*scaling*rotation;
   memcpy(vk_uniform_buffer_memory->matrix, glm::value_ptr(total_matrix),
          sizeof(GlobalUniforms::matrix));
@@ -214,9 +243,53 @@ void ImGui_update(double time){
         ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
     }
     if(ImGui::CollapsingHeader("Figure parameters")){
-        ImGui::InputFloat3("Position of the center", g_figure_position);
-        ImGui::InputFloat3("Scaling", g_figure_scaling);
-        ImGui::InputFloat3("Euler angle", g_figure_rotation);
+        if(!g_engine.IsFinished()){
+            ImGui::Text("Currently running animation");
+            ImGui::BeginDisabled();
+        }
+        ImGui::InputFloat3("Position of the center", g_figure_state.position.data());
+        ImGui::InputFloat3("Scaling", g_figure_state.scale.data());
+        ImGui::InputFloat3("Euler angle", g_figure_state.rotation.data());
+        if(!g_engine.IsFinished()){
+            ImGui::EndDisabled();
+        }
+    }
+    if(ImGui::CollapsingHeader("Animations. Bezier")){
+        if(ImGui::Button("Add step")){
+            g_engine.AddStep();
+        }
+        for(size_t i = 0; i < g_engine.GetStepsCount(); i++){
+            ImGui::Text("Step %d", i);
+            auto& step = g_engine.GetStepRef(i);
+            ImGui::PushID(i);
+            ImGui::InputFloat3("P1", step.p1.data());
+            ImGui::InputFloat3("P2", step.p2.data());
+            ImGui::InputFloat3("P3", step.p3.data());
+            if(ImGui::Button("Remove step")){
+                if(!g_engine.RemoveStep(i)){
+                    std::cerr << "Failed to remove a step";
+                }
+            }
+            ImGui::PopID();
+        }
+        ImGui::SeparatorText("Animation control");
+        ImGui::SliderFloat("Animation speed", &g_animation_speed, 0.1f, 5.0f);
+        if(ImGui::Button("Start")){
+            g_animation_paused = false;
+            g_engine.Start(g_figure_state);
+        }
+        ImGui::SameLine();
+        if(ImGui::Button("Pause")){
+            g_animation_paused = !g_animation_paused;
+        }
+        ImGui::SameLine();
+        if(ImGui::Button("Stop")){
+            g_engine.Stop();
+        }
+        ImGui::Checkbox("Is looping", &g_is_animation_looped);
+        if(g_animation_paused){
+            ImGui::Text("Animation is paused");
+        }
     }
     ImGui::End();
 }
