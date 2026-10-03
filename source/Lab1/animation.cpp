@@ -36,8 +36,11 @@ void AnimationEngine::Stop() {
   is_animating = false;
   current_step_idx = 0;
 }
-glm::vec3 BezierFunc(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float t) {
+glm::vec3 BezierFunc(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) {
   return (1 - t) * (1 - t) * p1 + 2 * t * (1 - t) * p2 + t * t * p3;
+}
+glm::vec3 LerpVec3(const glm::vec3& start, const glm::vec3& finish, float t){
+   return start + (finish - start)*t;
 }
 bool AnimationEngine::Proceed(FigureState &state, float speed, float dt,
                               bool is_looping) {
@@ -61,12 +64,15 @@ bool AnimationEngine::Proceed(FigureState &state, float speed, float dt,
     current_t -= dt * speed;
   }
   glm::vec3 new_position;
+  glm::vec3 new_rotation;
   if (current_t > 1) {
     new_position = glm::make_vec3<float>(steps[current_step_idx].p3.data());
+    new_rotation = glm::make_vec3<float>(steps[current_step_idx].rotation_end.data());
     current_t = 0;
     current_step_idx++;
   } else if (current_t < 0) {
     new_position = glm::make_vec3<float>(steps[current_step_idx].p1.data());
+    new_rotation = glm::make_vec3<float>(steps[current_step_idx].rotation_start.data());
     current_t = 1;
     if (current_step_idx == 0) {
       if (is_looping) {
@@ -85,9 +91,14 @@ bool AnimationEngine::Proceed(FigureState &state, float speed, float dt,
     glm::vec3 p2 = glm::make_vec3<float>(steps[current_step_idx].p2.data());
     glm::vec3 p3 = glm::make_vec3<float>(steps[current_step_idx].p3.data());
     new_position = BezierFunc(p1, p2, p3, current_t);
+    glm::vec3 rotation_start = glm::make_vec3<float>(steps[current_step_idx].rotation_start.data());
+    glm::vec3 rotation_end = glm::make_vec3<float>(steps[current_step_idx].rotation_end.data());
+    new_rotation = LerpVec3(rotation_start, rotation_end, current_t);
   }
   memcpy(state.position.data(), glm::value_ptr(new_position),
          sizeof(state.position));
+  memcpy(state.rotation.data(), glm::value_ptr(new_rotation),
+         sizeof(state.rotation));
   return true;
 }
 } // namespace animation

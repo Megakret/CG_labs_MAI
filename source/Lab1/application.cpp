@@ -10,6 +10,7 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
 #include "graphics.hpp"
@@ -74,10 +75,14 @@ void SetStarterAnimation(){
     step1.p1 = {-5, 5, -20};
     step1.p2 = {-2.5, 0, -17.5};
     step1.p3 = {0, 5, -15};
+    step1.rotation_start = {0,0,0};
+    step1.rotation_end= {0,90,0};
     auto &step2 = g_engine.GetStepRef(1);
     step2.p1 = {0,5,-15};
     step2.p2 = {2.5,0,-15};
     step2.p3 = {5,5,-10};
+    step2.rotation_start = {0,90,0};
+    step2.rotation_end= {0,180,0};
 }
 bool initialize() {
   auto &context = graphics::internal::context;
@@ -265,6 +270,9 @@ void ImGui_update(double time){
             ImGui::InputFloat3("P1", step.p1.data());
             ImGui::InputFloat3("P2", step.p2.data());
             ImGui::InputFloat3("P3", step.p3.data());
+            ImGui::Text("Rotation");
+            ImGui::InputFloat3("Start rotation", step.rotation_start.data());
+            ImGui::InputFloat3("End rotation", step.rotation_end.data());
             if(ImGui::Button("Remove step")){
                 if(!g_engine.RemoveStep(i)){
                     std::cerr << "Failed to remove a step";

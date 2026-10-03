@@ -11,6 +11,8 @@ struct AnimationStep {
   std::array<float, 3> p1;
   std::array<float, 3> p2;
   std::array<float, 3> p3;
+  std::array<float, 3> rotation_start;
+  std::array<float, 3> rotation_end;
 };
 struct FigureState {
   std::array<float, 3> position;
