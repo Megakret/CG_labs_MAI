@@ -58,7 +58,9 @@ std::vector<graphics::Vertex> vertices{
     {{0.0f, 1.0f, 0.0f}, {0.5f, 0.0f, 1.0f}},
 };
 struct GlobalUniforms {
-  float matrix[4][4];
+  float local_coords_matrix[4][4];
+  float transform_projection_matrix[4][4];
+  float color[3] = {1.0f, 1.0f, 1.0f};
 };
 VkBuffer vk_uniform_buffer;
 VmaAllocation vk_uniform_buffer_allocation;
@@ -142,7 +144,7 @@ bool initialize() {
   const VkDescriptorPoolCreateInfo descriptor_pool_info{
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
       .maxSets = 1,
-      .poolSizeCount = sizeof(descriptor_pool_info) / sizeof(descriptor_pool_sizes[0]),
+      .poolSizeCount = sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
       .pPoolSizes = descriptor_pool_sizes
   };
   if (vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr, &vk_descriptor_pool) != VK_SUCCESS){
@@ -230,14 +232,17 @@ void update([[maybe_unused]] double time) {
   if(!g_animation_paused){
       g_engine.Proceed(g_figure_state, g_animation_speed, delta_time, g_is_animation_looped);
   }
-  glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::make_vec3(g_figure_state.position.data()));
+  glm::mat4 movement = glm::translate(glm::mat4(1.0f), glm::make_vec3(g_figure_state.position.data()));
   glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::make_vec3(g_figure_state.scale.data()));
   glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(g_figure_state.rotation[0]), glm::vec3(1.0f,0.0f,0.0f));
   rotation = glm::rotate(rotation, glm::radians(g_figure_state.rotation[1]), glm::vec3(0.0f,1.0f,0.0f));
   rotation = glm::rotate(rotation, glm::radians(g_figure_state.rotation[2]), glm::vec3(0.0f,0.0f,1.0f));
-  glm::mat4 total_matrix = to_2d_matrix*model*scaling*rotation;
-  memcpy(vk_uniform_buffer_memory->matrix, glm::value_ptr(total_matrix),
-         sizeof(GlobalUniforms::matrix));
+  glm::mat4 move_and_projection = to_2d_matrix * movement * scaling;
+  glm::mat4 scale_and_rotation = rotation;
+  memcpy(vk_uniform_buffer_memory->transform_projection_matrix, glm::value_ptr(move_and_projection),
+         sizeof(GlobalUniforms::transform_projection_matrix));
+  memcpy(vk_uniform_buffer_memory->local_coords_matrix, glm::value_ptr(scale_and_rotation),
+         sizeof(GlobalUniforms::local_coords_matrix));
 }
 void ImGui_update(double time){
     ImGui::ShowDemoWindow();
@@ -249,7 +254,7 @@ void ImGui_update(double time){
     }
     if(ImGui::CollapsingHeader("Figure parameters")){
         if(!g_engine.IsFinished()){
-            ImGui::Text("Currently running animation");
+            ImGui::Text("Currently running an animation");
             ImGui::BeginDisabled();
         }
         ImGui::InputFloat3("Position of the center", g_figure_state.position.data());
@@ -298,6 +303,9 @@ void ImGui_update(double time){
         if(g_animation_paused){
             ImGui::Text("Animation is paused");
         }
+    }
+    if(ImGui::CollapsingHeader("Color edit")){
+        ImGui::ColorEdit3("Figure color", vk_uniform_buffer_memory->color);
     }
     ImGui::End();
 }
