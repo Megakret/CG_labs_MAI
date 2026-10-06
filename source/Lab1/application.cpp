@@ -128,40 +128,25 @@ const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
 float g_fov = 70.0f;
 double g_prev_time = 0;
-void update([[maybe_unused]] double time) {
-  auto &context = graphics::internal::context;
-  double delta_time = time - g_prev_time;
-  g_prev_time = time;
-  ImGui_update(time);
-  glm::mat4 projection_matrix;
-  if (g_matrix_to_use == PROJECTION_MATRIX_ID) {
-    projection_matrix = glm::perspectiveFov(
-        glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
-        static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
-  } else if (g_matrix_to_use == ORTOGRAPHIC_MATRIX_ID) {
-    const float w = static_cast<float>(context.swapchain_extent.width);
-    const float h = static_cast<float>(context.swapchain_extent.height);
-    const float aspect = w / h;
-    const float half_height = 10.0f;
-    const float half_width = half_height * aspect;
-    projection_matrix = glm::orthoZO(-half_width, half_width, -half_height,
-                                     half_height, 0.1f, 100.0f);
-  } else {
-    return;
-  }
-  for (size_t i = 0; i < g_figure_configs.size(); i++) {
-    auto &config = g_figure_configs[i];
-    if (!config.animation_config.is_paused) {
-      g_animation_engines[i].Proceed(config.figure_state, config.animation_config.speed,
-                       delta_time, config.animation_config.is_looped);
+glm::mat4 GetProjectionMatrix(){
+    auto& context = graphics::internal::context;
+    glm::mat4 projection_matrix(1.0f);
+    if (g_matrix_to_use == PROJECTION_MATRIX_ID) {
+      projection_matrix = glm::perspectiveFov(
+          glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
+          static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
+    } else if (g_matrix_to_use == ORTOGRAPHIC_MATRIX_ID) {
+      const float w = static_cast<float>(context.swapchain_extent.width);
+      const float h = static_cast<float>(context.swapchain_extent.height);
+      const float aspect = w / h;
+      const float half_height = 10.0f;
+      const float half_width = half_height * aspect;
+      projection_matrix = glm::orthoZO(-half_width, half_width, -half_height,
+                                       half_height, 0.1f, 100.0f);
     }
-    g_figures[i].UpdateFigure(projection_matrix, config.figure_state.position,
-                              config.figure_state.rotation,
-                              config.figure_state.scale,
-                              config.figure_state.color);
-  }
+    return projection_matrix;
 }
-void ImGui_update(double time) {
+void ImGui_update() {
   ImGui::Begin("Awesome engine configuration");
   if (ImGui::CollapsingHeader("2D Projection settings")) {
     ImGui::RadioButton("Projection matrix", &g_matrix_to_use,
@@ -195,7 +180,7 @@ void ImGui_update(double time) {
         engine.AddStep();
       }
       for (size_t i = 0; i < engine.GetStepsCount(); i++) {
-        ImGui::Text("Step %d", i);
+        ImGui::Text("Step %d", static_cast<int>(i));
         auto &step = engine.GetStepRef(i);
         ImGui::PushID(i);
         ImGui::InputFloat3("P1", step.p1.data());
@@ -237,6 +222,18 @@ void ImGui_update(double time) {
     ImGui::End();
   }
 }
+void update([[maybe_unused]] double time) {
+  double delta_time = time - g_prev_time;
+  g_prev_time = time;
+  ImGui_update();
+  for (size_t i = 0; i < g_figure_configs.size(); i++) {
+    auto &config = g_figure_configs[i];
+    if (!config.animation_config.is_paused) {
+      g_animation_engines[i].Proceed(config.figure_state, config.animation_config.speed,
+                       delta_time, config.animation_config.is_looped);
+    }
+  }
+}
 
 void render(const graphics::internal::FrameData &fd) {
   auto &context = graphics::internal::context;
@@ -271,9 +268,16 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
-  for (auto &figure : g_figures) {
+  for (size_t i = 0; i < FIGURE_COUNT; i++) {
+    auto& figure = g_figures[i];
+    auto& config = g_figure_configs[i];
     figure.Bind(fd.command_buffer);
     figure.Draw(fd.command_buffer);
+    glm::mat4 projection_matrix = GetProjectionMatrix();
+    figure.UpdateFigure(projection_matrix, config.figure_state.position,
+                              config.figure_state.rotation,
+                              config.figure_state.scale,
+                              config.figure_state.color);
   }
 
   // finalize the render pass
