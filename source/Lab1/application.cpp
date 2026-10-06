@@ -47,7 +47,7 @@ const std::vector<uint16_t> indexes{
 struct GlobalUniforms {
   float local_coords_matrix[4][4];
   float transform_projection_matrix[4][4];
-  float color[3] = {1.0f, 1.0f, 1.0f};
+  float color[3] = {1.0f,1.0f,1.0f};
 };
 VkBuffer vk_uniform_buffer;
 VmaAllocation vk_uniform_buffer_allocation;
@@ -147,6 +147,7 @@ bool initialize() {
     std::cerr << "Failed to map vertex buffer memory\n";
     return false;
   }
+  new (vk_uniform_buffer_memory) GlobalUniforms();
 
   const VkDescriptorPoolSize descriptor_pool_sizes[]{
       VkDescriptorPoolSize{
