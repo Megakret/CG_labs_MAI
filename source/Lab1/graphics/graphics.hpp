@@ -43,6 +43,8 @@ VkPipelineRasterizationStateCreateInfo
 rasterization_state_create_info(VkPolygonMode polygonMode);
 VkPipelineMultisampleStateCreateInfo multisampling_state_create_info();
 VkPipelineColorBlendAttachmentState color_blend_attachment_state();
-VkPipelineLayoutCreateInfo pipeline_layout_create_info(VkDescriptorSetLayout* layout);
-VkDescriptorSetLayout create_descriptor_set_layout(std::span<const VkDescriptorSetLayoutBinding> bindings);
+VkPipelineLayoutCreateInfo
+pipeline_layout_create_info(VkDescriptorSetLayout *layout);
+VkDescriptorSetLayout create_descriptor_set_layout(
+    std::span<const VkDescriptorSetLayoutBinding> bindings);
 } // namespace graphics

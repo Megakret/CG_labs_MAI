@@ -6,12 +6,12 @@
 #include <vulkan/vulkan_core.h>
 
 namespace graphics {
-    struct FigureState{
-        std::array<float, 3> position = {0,0,-20.0f};
-        std::array<float, 3> rotation = {0,0,0};
-        std::array<float, 3> scale = {1,1,1};
-        std::array<float, 3> color = {1,1,1};
-    };
+struct FigureState {
+  std::array<float, 3> position = {0, 0, -20.0f};
+  std::array<float, 3> rotation = {0, 0, 0};
+  std::array<float, 3> scale = {1, 1, 1};
+  std::array<float, 3> color = {1, 1, 1};
+};
 class Figure {
 public:
   struct Shape {
@@ -28,12 +28,12 @@ public:
   Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
          VkDescriptorSetLayout descriptor_layout);
   Figure(const Figure &) = delete;
-  Figure(Figure &&) = default;
+  Figure(Figure &&) noexcept;
   Figure &operator=(const Figure &) = delete;
-  Figure &operator=(Figure &&) = default;
+  Figure &operator=(Figure &&) noexcept;
   void Bind(VkCommandBuffer command_buffer);
   void Draw(VkCommandBuffer command_buffer);
-  void UpdateFigure(const glm::mat4& projection_matrix,
+  void UpdateFigure(const glm::mat4 &projection_matrix,
                     const std::array<float, 3> &position,
                     const std::array<float, 3> &rotation,
                     const std::array<float, 3> &scale,

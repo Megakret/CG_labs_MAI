@@ -20,13 +20,18 @@
 #include "graphics/graphics.hpp"
 namespace application {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-VkBuffer vk_vertex_buffer;
-VmaAllocation vk_vertex_buffer_allocation;
-graphics::Vertex *vk_vertex_buffer_memory;
-
-VkBuffer vk_index_buffer;
-VmaAllocation vk_index_buffer_allocation;
-uint16_t *vk_index_buffer_memory;
+struct AnimationConfig {
+  float speed = 1.0f;
+  bool is_paused = false;
+  bool is_looped = false;
+};
+struct FigureConfig {
+  graphics::FigureState figure_state;
+  AnimationConfig animation_config;
+};
+const int FIGURE_COUNT = 2;
+std::vector<animation::AnimationEngine> g_animation_engines(FIGURE_COUNT);
+std::vector<FigureConfig> g_figure_configs(FIGURE_COUNT);
 
 graphics::Figure::Shape OCTAHEDRON_SHAPE = {
     .vertices =
@@ -66,22 +71,23 @@ const std::vector<uint16_t> indexes{
 VkDescriptorPool vk_descriptor_pool;
 std::vector<graphics::Figure> g_figures;
 
-animation::AnimationEngine g_engine;
 void SetStarterAnimation() {
-  g_engine.AddStep();
-  g_engine.AddStep();
-  auto &step1 = g_engine.GetStepRef(0);
-  step1.p1 = {-5, 5, -20};
-  step1.p2 = {-2.5, 0, -17.5};
-  step1.p3 = {0, 5, -15};
-  step1.rotation_start = {0, 0, 0};
-  step1.rotation_end = {0, 90, 0};
-  auto &step2 = g_engine.GetStepRef(1);
-  step2.p1 = {0, 5, -15};
-  step2.p2 = {2.5, 0, -15};
-  step2.p3 = {5, 5, -10};
-  step2.rotation_start = {0, 90, 0};
-  step2.rotation_end = {0, 180, 0};
+for(auto& engine: g_animation_engines){
+    engine.AddStep();
+    engine.AddStep();
+    auto &step1 = engine.GetStepRef(0);
+    step1.p1 = {-5, 5, -20};
+    step1.p2 = {-2.5, 0, -17.5};
+    step1.p3 = {0, 5, -15};
+    step1.rotation_start = {0, 0, 0};
+    step1.rotation_end = {0, 90, 0};
+    auto &step2 = engine.GetStepRef(1);
+    step2.p1 = {0, 5, -15};
+    step2.p2 = {2.5, 0, -15};
+    step2.p3 = {5, 5, -10};
+    step2.rotation_start = {0, 90, 0};
+    step2.rotation_end = {0, 180, 0};
+}
 }
 bool initialize() {
   auto &context = graphics::internal::context;
@@ -90,7 +96,7 @@ bool initialize() {
       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 4}};
   const VkDescriptorPoolCreateInfo descriptor_pool_info{
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .maxSets = 1,
+      .maxSets = 2,
       .poolSizeCount =
           sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
       .pPoolSizes = descriptor_pool_sizes};
@@ -99,8 +105,11 @@ bool initialize() {
     std::cerr << "Failed to create a descriptor pool\n";
     return false;
   }
-  g_figures.emplace_back(OCTAHEDRON_SHAPE, vk_descriptor_pool,
-                         graphics::descriptor_set_layout);
+  g_figures.reserve(FIGURE_COUNT);
+  for(int i = 0; i < FIGURE_COUNT; i++){
+      g_figures.emplace_back(OCTAHEDRON_SHAPE, vk_descriptor_pool,
+                             graphics::descriptor_set_layout);
+  }
   SetStarterAnimation();
   return true;
 }
@@ -113,16 +122,6 @@ void shutdown() {
                           nullptr);
   g_figures.clear();
 }
-struct AnimationConfig {
-  float speed = 1.0f;
-  bool is_paused = false;
-  bool is_looped = false;
-};
-struct FigureConfig {
-  graphics::FigureState figure_state;
-  AnimationConfig animation_config;
-};
-std::vector<FigureConfig> g_figure_configs(1);
 double prev_time = 0;
 const int PROJECTION_MATRIX_ID = 0;
 const int ORTOGRAPHIC_MATRIX_ID = 1;
@@ -150,12 +149,13 @@ void update([[maybe_unused]] double time) {
   } else {
     return;
   }
-  for (auto &config : g_figure_configs) {
+  for (size_t i = 0; i < g_figure_configs.size(); i++) {
+    auto &config = g_figure_configs[i];
     if (!config.animation_config.is_paused) {
-      g_engine.Proceed(config.figure_state, config.animation_config.speed,
+      g_animation_engines[i].Proceed(config.figure_state, config.animation_config.speed,
                        delta_time, config.animation_config.is_looped);
     }
-    g_figures[0].UpdateFigure(projection_matrix, config.figure_state.position,
+    g_figures[i].UpdateFigure(projection_matrix, config.figure_state.position,
                               config.figure_state.rotation,
                               config.figure_state.scale,
                               config.figure_state.color);
@@ -172,12 +172,13 @@ void ImGui_update(double time) {
     ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
   }
   ImGui::End();
-  for (size_t i = 0; i < g_figure_configs.size(); i++) {
+  for (size_t i = 0; i < FIGURE_COUNT; i++) {
     std::string window_name = std::format("Figure config {}", i);
     auto &config = g_figure_configs[i];
+    auto &engine = g_animation_engines[i];
     ImGui::Begin(window_name.data());
     if (ImGui::CollapsingHeader("Figure parameters")) {
-      if (!g_engine.IsFinished()) {
+      if (!engine.IsFinished()) {
         ImGui::Text("Currently running an animation");
         ImGui::BeginDisabled();
       }
@@ -185,17 +186,17 @@ void ImGui_update(double time) {
                          config.figure_state.position.data());
       ImGui::InputFloat3("Scaling", config.figure_state.scale.data());
       ImGui::InputFloat3("Euler angle", config.figure_state.rotation.data());
-      if (!g_engine.IsFinished()) {
+      if (!engine.IsFinished()) {
         ImGui::EndDisabled();
       }
     }
     if (ImGui::CollapsingHeader("Animations. Bezier")) {
       if (ImGui::Button("Add step")) {
-        g_engine.AddStep();
+        engine.AddStep();
       }
-      for (size_t i = 0; i < g_engine.GetStepsCount(); i++) {
+      for (size_t i = 0; i < engine.GetStepsCount(); i++) {
         ImGui::Text("Step %d", i);
-        auto &step = g_engine.GetStepRef(i);
+        auto &step = engine.GetStepRef(i);
         ImGui::PushID(i);
         ImGui::InputFloat3("P1", step.p1.data());
         ImGui::InputFloat3("P2", step.p2.data());
@@ -204,7 +205,7 @@ void ImGui_update(double time) {
         ImGui::InputFloat3("Start rotation", step.rotation_start.data());
         ImGui::InputFloat3("End rotation", step.rotation_end.data());
         if (ImGui::Button("Remove step")) {
-          if (!g_engine.RemoveStep(i)) {
+          if (!engine.RemoveStep(i)) {
             std::cerr << "Failed to remove a step";
           }
         }
@@ -215,7 +216,7 @@ void ImGui_update(double time) {
                          0.1f, 5.0f);
       if (ImGui::Button("Start")) {
         config.animation_config.is_paused = false;
-        g_engine.Start(config.figure_state);
+        engine.Start(config.figure_state);
       }
       ImGui::SameLine();
       if (ImGui::Button("Pause")) {
@@ -223,7 +224,7 @@ void ImGui_update(double time) {
       }
       ImGui::SameLine();
       if (ImGui::Button("Stop")) {
-        g_engine.Stop();
+        engine.Stop();
       }
       ImGui::Checkbox("Is looping", &config.animation_config.is_looped);
       if (config.animation_config.is_paused) {
@@ -270,9 +271,10 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
-  VkDeviceSize offset = 0;
-  g_figures[0].Bind(fd.command_buffer);
-  g_figures[0].Draw(fd.command_buffer);
+  for (auto &figure : g_figures) {
+    figure.Bind(fd.command_buffer);
+    figure.Draw(fd.command_buffer);
+  }
 
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);

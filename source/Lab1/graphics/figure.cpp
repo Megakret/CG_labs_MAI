@@ -130,24 +130,24 @@ void Figure::Bind(VkCommandBuffer command_buffer) {
 void Figure::Draw(VkCommandBuffer command_buffer) {
   vkCmdDrawIndexed(command_buffer, index_count, 1, 0, 0, 0);
 }
-void Figure::UpdateFigure(const glm::mat4& projection_matrix,
-                  const std::array<float, 3> &position,
-                  const std::array<float, 3> &rotation,
-                  const std::array<float, 3> &scale,
-                  const std::array<float, 3> &color) {
+void Figure::UpdateFigure(const glm::mat4 &projection_matrix,
+                          const std::array<float, 3> &position,
+                          const std::array<float, 3> &rotation,
+                          const std::array<float, 3> &scale,
+                          const std::array<float, 3> &color) {
 
-  glm::mat4 move_matrix = glm::translate(
-      glm::mat4(1.0f), glm::make_vec3(position.data()));
+  glm::mat4 move_matrix =
+      glm::translate(glm::mat4(1.0f), glm::make_vec3(position.data()));
   glm::mat4 scaling_matrix =
       glm::scale(glm::mat4(1.0f), glm::make_vec3(scale.data()));
-  glm::mat4 rotation_matrix =
-      glm::rotate(glm::mat4(1.0f), glm::radians(rotation[0]),
-                  glm::vec3(1.0f, 0.0f, 0.0f));
+  glm::mat4 rotation_matrix = glm::rotate(
+      glm::mat4(1.0f), glm::radians(rotation[0]), glm::vec3(1.0f, 0.0f, 0.0f));
   rotation_matrix = glm::rotate(rotation_matrix, glm::radians(rotation[1]),
-                         glm::vec3(0.0f, 1.0f, 0.0f));
+                                glm::vec3(0.0f, 1.0f, 0.0f));
   rotation_matrix = glm::rotate(rotation_matrix, glm::radians(rotation[2]),
-                         glm::vec3(0.0f, 0.0f, 1.0f));
-  glm::mat4 move_and_projection = projection_matrix * move_matrix* scaling_matrix;
+                                glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::mat4 move_and_projection =
+      projection_matrix * move_matrix * scaling_matrix;
   glm::mat4 local_coords_matrix = rotation_matrix;
   memcpy(vk_uniform_buffer_memory->transform_projection_matrix,
          glm::value_ptr(move_and_projection),
@@ -156,5 +156,37 @@ void Figure::UpdateFigure(const glm::mat4& projection_matrix,
          glm::value_ptr(local_coords_matrix),
          sizeof(UniformData::local_coords_matrix));
   memcpy(vk_uniform_buffer_memory->color, color.data(), sizeof(color));
+}
+Figure::Figure(Figure &&other) noexcept {
+  vk_vertex_buffer = other.vk_vertex_buffer;
+  vk_vertex_buffer_allocation = other.vk_vertex_buffer_allocation;
+  vk_vertex_buffer_memory = other.vk_vertex_buffer_memory;
+  vk_index_buffer = other.vk_index_buffer;
+  vk_index_buffer_allocation = other.vk_index_buffer_allocation;
+  vk_index_buffer_memory = other.vk_index_buffer_memory;
+  vk_uniform_buffer = other.vk_uniform_buffer;
+  vk_uniform_buffer_allocation = other.vk_uniform_buffer_allocation;
+  vk_uniform_buffer_memory = other.vk_uniform_buffer_memory;
+  vk_uniform_descriptor_set = other.vk_uniform_descriptor_set;
+  index_count = other.index_count;
+
+  other.vk_vertex_buffer = VK_NULL_HANDLE;
+  other.vk_index_buffer = VK_NULL_HANDLE;
+  other.vk_uniform_buffer = VK_NULL_HANDLE;
+  other.vk_vertex_buffer_allocation = VK_NULL_HANDLE;
+  other.vk_index_buffer_allocation = VK_NULL_HANDLE;
+  other.vk_uniform_buffer_allocation = VK_NULL_HANDLE;
+  other.vk_vertex_buffer_memory = nullptr;
+  other.vk_index_buffer_memory = nullptr;
+  other.vk_uniform_buffer_memory = nullptr;
+  other.vk_uniform_descriptor_set = VK_NULL_HANDLE;
+  other.index_count = 0;
+}
+Figure &Figure::operator=(Figure &&other) noexcept {
+    if(this != &other){
+        this->~Figure();
+        Figure(std::move(other));
+    }
+    return *this;
 }
 }; // namespace graphics
