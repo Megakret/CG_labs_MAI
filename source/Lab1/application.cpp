@@ -1,6 +1,8 @@
 #include "application.hpp"
 
+#include <cstdio>
 #include <cstring>
+#include <format>
 #include <imgui.h>
 #include <iostream>
 
@@ -111,18 +113,21 @@ void shutdown() {
                           nullptr);
   g_figures.clear();
 }
-std::vector<bool> states{true, true, true};
+struct AnimationConfig {
+  float speed = 1.0f;
+  bool is_paused = false;
+  bool is_looped = false;
+};
+struct FigureConfig {
+  graphics::FigureState figure_state;
+  AnimationConfig animation_config;
+};
+std::vector<FigureConfig> g_figure_configs(1);
 double prev_time = 0;
 const int PROJECTION_MATRIX_ID = 0;
 const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
-animation::FigureState g_figure_state{
-    .position = {0, 0, -20.0f}, .rotation = {0, 0, 0}, .scale = {1, 1, 1}};
-std::array<float, 3> g_color = {1.0f, 1.0f, 1.0f};
 float g_fov = 70.0f;
-float g_animation_speed = 1.0f;
-bool g_animation_paused = false;
-bool g_is_animation_looped = false;
 double g_prev_time = 0;
 void update([[maybe_unused]] double time) {
   auto &context = graphics::internal::context;
@@ -145,13 +150,16 @@ void update([[maybe_unused]] double time) {
   } else {
     return;
   }
-  if (!g_animation_paused) {
-    g_engine.Proceed(g_figure_state, g_animation_speed, delta_time,
-                     g_is_animation_looped);
+  for (auto &config : g_figure_configs) {
+    if (!config.animation_config.is_paused) {
+      g_engine.Proceed(config.figure_state, config.animation_config.speed,
+                       delta_time, config.animation_config.is_looped);
+    }
+    g_figures[0].UpdateFigure(projection_matrix, config.figure_state.position,
+                              config.figure_state.rotation,
+                              config.figure_state.scale,
+                              config.figure_state.color);
   }
-  g_figures[0].UpdateFigure(projection_matrix, g_figure_state.position,
-                            g_figure_state.rotation, g_figure_state.scale,
-                            g_color);
 }
 void ImGui_update(double time) {
   ImGui::Begin("Awesome engine configuration");
@@ -163,63 +171,70 @@ void ImGui_update(double time) {
                        ORTOGRAPHIC_MATRIX_ID);
     ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
   }
-  if (ImGui::CollapsingHeader("Figure parameters")) {
-    if (!g_engine.IsFinished()) {
-      ImGui::Text("Currently running an animation");
-      ImGui::BeginDisabled();
-    }
-    ImGui::InputFloat3("Position of the center",
-                       g_figure_state.position.data());
-    ImGui::InputFloat3("Scaling", g_figure_state.scale.data());
-    ImGui::InputFloat3("Euler angle", g_figure_state.rotation.data());
-    if (!g_engine.IsFinished()) {
-      ImGui::EndDisabled();
-    }
-  }
-  if (ImGui::CollapsingHeader("Animations. Bezier")) {
-    if (ImGui::Button("Add step")) {
-      g_engine.AddStep();
-    }
-    for (size_t i = 0; i < g_engine.GetStepsCount(); i++) {
-      ImGui::Text("Step %d", i);
-      auto &step = g_engine.GetStepRef(i);
-      ImGui::PushID(i);
-      ImGui::InputFloat3("P1", step.p1.data());
-      ImGui::InputFloat3("P2", step.p2.data());
-      ImGui::InputFloat3("P3", step.p3.data());
-      ImGui::Text("Rotation");
-      ImGui::InputFloat3("Start rotation", step.rotation_start.data());
-      ImGui::InputFloat3("End rotation", step.rotation_end.data());
-      if (ImGui::Button("Remove step")) {
-        if (!g_engine.RemoveStep(i)) {
-          std::cerr << "Failed to remove a step";
-        }
-      }
-      ImGui::PopID();
-    }
-    ImGui::SeparatorText("Animation control");
-    ImGui::SliderFloat("Animation speed", &g_animation_speed, 0.1f, 5.0f);
-    if (ImGui::Button("Start")) {
-      g_animation_paused = false;
-      g_engine.Start(g_figure_state);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Pause")) {
-      g_animation_paused = !g_animation_paused;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Stop")) {
-      g_engine.Stop();
-    }
-    ImGui::Checkbox("Is looping", &g_is_animation_looped);
-    if (g_animation_paused) {
-      ImGui::Text("Animation is paused");
-    }
-  }
-  if (ImGui::CollapsingHeader("Color edit")) {
-    ImGui::ColorEdit3("Figure color", g_color.data());
-  }
   ImGui::End();
+  for (size_t i = 0; i < g_figure_configs.size(); i++) {
+    std::string window_name = std::format("Figure config {}", i);
+    auto &config = g_figure_configs[i];
+    ImGui::Begin(window_name.data());
+    if (ImGui::CollapsingHeader("Figure parameters")) {
+      if (!g_engine.IsFinished()) {
+        ImGui::Text("Currently running an animation");
+        ImGui::BeginDisabled();
+      }
+      ImGui::InputFloat3("Position of the center",
+                         config.figure_state.position.data());
+      ImGui::InputFloat3("Scaling", config.figure_state.scale.data());
+      ImGui::InputFloat3("Euler angle", config.figure_state.rotation.data());
+      if (!g_engine.IsFinished()) {
+        ImGui::EndDisabled();
+      }
+    }
+    if (ImGui::CollapsingHeader("Animations. Bezier")) {
+      if (ImGui::Button("Add step")) {
+        g_engine.AddStep();
+      }
+      for (size_t i = 0; i < g_engine.GetStepsCount(); i++) {
+        ImGui::Text("Step %d", i);
+        auto &step = g_engine.GetStepRef(i);
+        ImGui::PushID(i);
+        ImGui::InputFloat3("P1", step.p1.data());
+        ImGui::InputFloat3("P2", step.p2.data());
+        ImGui::InputFloat3("P3", step.p3.data());
+        ImGui::Text("Rotation");
+        ImGui::InputFloat3("Start rotation", step.rotation_start.data());
+        ImGui::InputFloat3("End rotation", step.rotation_end.data());
+        if (ImGui::Button("Remove step")) {
+          if (!g_engine.RemoveStep(i)) {
+            std::cerr << "Failed to remove a step";
+          }
+        }
+        ImGui::PopID();
+      }
+      ImGui::SeparatorText("Animation control");
+      ImGui::SliderFloat("Animation speed", &config.animation_config.speed,
+                         0.1f, 5.0f);
+      if (ImGui::Button("Start")) {
+        config.animation_config.is_paused = false;
+        g_engine.Start(config.figure_state);
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Pause")) {
+        config.animation_config.is_paused = !config.animation_config.is_paused;
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Stop")) {
+        g_engine.Stop();
+      }
+      ImGui::Checkbox("Is looping", &config.animation_config.is_looped);
+      if (config.animation_config.is_paused) {
+        ImGui::Text("Animation is paused");
+      }
+    }
+    if (ImGui::CollapsingHeader("Color edit")) {
+      ImGui::ColorEdit3("Figure color", config.figure_state.color.data());
+    }
+    ImGui::End();
+  }
 }
 
 void render(const graphics::internal::FrameData &fd) {

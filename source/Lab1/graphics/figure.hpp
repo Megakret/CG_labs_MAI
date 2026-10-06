@@ -6,6 +6,12 @@
 #include <vulkan/vulkan_core.h>
 
 namespace graphics {
+    struct FigureState{
+        std::array<float, 3> position = {0,0,-20.0f};
+        std::array<float, 3> rotation = {0,0,0};
+        std::array<float, 3> scale = {1,1,1};
+        std::array<float, 3> color = {1,1,1};
+    };
 class Figure {
 public:
   struct Shape {
@@ -17,12 +23,6 @@ public:
     float transform_projection_matrix[4][4];
     float color[3];
   };
-
-public:
-  float position[3];
-  float rotation[3];
-  float scale[3];
-  float color[3];
 
 public:
   Figure(const Shape &shape, VkDescriptorPool descriptor_pool,

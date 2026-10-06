@@ -22,7 +22,7 @@ bool AnimationEngine::RemoveStep(size_t i) {
   steps.erase(steps.begin() + i);
   return true;
 }
-void AnimationEngine::Start(FigureState &state) {
+void AnimationEngine::Start(graphics::FigureState &state) {
   is_animating = true;
   if (steps.size() == 0) {
     return;
@@ -42,7 +42,7 @@ glm::vec3 BezierFunc(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& 
 glm::vec3 LerpVec3(const glm::vec3& start, const glm::vec3& finish, float t){
    return start + (finish - start)*t;
 }
-bool AnimationEngine::Proceed(FigureState &state, float speed, float dt,
+bool AnimationEngine::Proceed(graphics::FigureState &state, float speed, float dt,
                               bool is_looping) {
   if (!is_animating) {
     return false;

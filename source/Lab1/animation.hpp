@@ -1,9 +1,12 @@
+#pragma once
 #include <array>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/type_ptr.hpp"
+
+#include "graphics/figure.hpp"
 
 namespace animation {
 //Bezier
@@ -13,11 +16,6 @@ struct AnimationStep {
   std::array<float, 3> p3;
   std::array<float, 3> rotation_start;
   std::array<float, 3> rotation_end;
-};
-struct FigureState {
-  std::array<float, 3> position;
-  std::array<float, 3> rotation;
-  std::array<float, 3> scale;
 };
 class AnimationEngine {
 private:
@@ -32,8 +30,8 @@ public:
   void AddStep();
   bool RemoveStep(size_t i);
   bool IsFinished();
-  bool Proceed(FigureState& current_state, float speed, float dt, bool is_looping);
-  void Start(FigureState& state);
+  bool Proceed(graphics::FigureState& current_state, float speed, float dt, bool is_looping);
+  void Start(graphics::FigureState& state);
   void Stop();
 };
 } // namespace animation
