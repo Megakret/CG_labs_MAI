@@ -20,42 +20,29 @@ namespace application {
 VkBuffer vk_vertex_buffer;
 VmaAllocation vk_vertex_buffer_allocation;
 graphics::Vertex *vk_vertex_buffer_memory;
-// Regular octahedron (vertices at +/-1 on each axis), 24 vertices:
-// 8 triangular faces * 3 vertices, one color per face. Faces are wound
-// CCW when viewed from outside.
+
+VkBuffer vk_index_buffer;
+VmaAllocation vk_index_buffer_allocation;
+uint16_t *vk_index_buffer_memory;
+// Regular octahedron: 6 unique vertices at +/-1 on each axis.
 std::vector<graphics::Vertex> vertices{
-    // +X +Y +Z - red
-    {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-    {{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-    {{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-    // +X -Y +Z - yellow
-    {{1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}},
-    {{0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 0.0f}},
-    // -X -Y +Z - green
-    {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{0.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-    // -X +Y +Z - cyan
-    {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},
-    {{0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 1.0f}},
-    {{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},
-    // -X -Y -Z - blue
-    {{-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    {{0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 1.0f}},
-    {{0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    // +X -Y -Z - magenta
-    {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},
-    {{0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},
-    {{0.0f, 0.0f, -1.0f}, {1.0f, 0.0f, 1.0f}},
-    // -X +Y -Z - orange
-    {{-1.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.0f}},
-    {{0.0f, 1.0f, 0.0f}, {1.0f, 0.5f, 0.0f}},
-    {{0.0f, 0.0f, -1.0f}, {1.0f, 0.5f, 0.0f}},
-    // +X +Y -Z - purple
-    {{1.0f, 0.0f, 0.0f}, {0.5f, 0.0f, 1.0f}},
-    {{0.0f, 0.0f, -1.0f}, {0.5f, 0.0f, 1.0f}},
-    {{0.0f, 1.0f, 0.0f}, {0.5f, 0.0f, 1.0f}},
+    {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},   // 0: +X
+    {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},  // 1: -X
+    {{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},   // 2: +Y
+    {{0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},  // 3: -Y
+    {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},   // 4: +Z
+    {{0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 0.0f}},  // 5: -Z
+};
+// 8 triangular faces, each wound CCW when viewed from outside.
+const std::vector<uint16_t> indexes{
+    0, 2, 4, // +X +Y +Z
+    0, 4, 3, // +X -Y +Z
+    1, 3, 4, // -X -Y +Z
+    1, 4, 2, // -X +Y +Z
+    1, 5, 3, // -X -Y -Z
+    0, 3, 5, // +X -Y -Z
+    1, 2, 5, // -X +Y -Z
+    0, 5, 2, // +X +Y -Z
 };
 struct GlobalUniforms {
   float local_coords_matrix[4][4];
@@ -112,6 +99,32 @@ bool initialize() {
     std::cerr << "Failed to map vertex buffer memory\n";
     return false;
   }
+  //Index buffer
+  const VkBufferCreateInfo index_buffer_info{
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .size = indexes.size() * sizeof(uint16_t),
+      .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
+  const VmaAllocationCreateInfo index_buffer_allocation_info{
+      .flags = (VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT),
+      .usage = VMA_MEMORY_USAGE_AUTO};
+  if (vmaCreateBuffer(context.allocator, &index_buffer_info,
+                      &index_buffer_allocation_info, &vk_index_buffer,
+                      &vk_index_buffer_allocation, nullptr) != VK_SUCCESS) {
+    std::cerr << "Failed to create and allocate a vertex buffer\n";
+    return false;
+  }
+  if (vmaMapMemory(context.allocator, vk_index_buffer_allocation,
+                   reinterpret_cast<void **>(&vk_index_buffer_memory)) !=
+      VK_SUCCESS) {
+    std::cerr << "Failed to map index buffer memory\n";
+    return false;
+  }
+  memcpy(vk_vertex_buffer_memory, vertices.data(),
+         vertices.size() * sizeof(graphics::Vertex));
+  memcpy(vk_index_buffer_memory, indexes.data(),
+         indexes.size() * sizeof(uint16_t));
   // Uniform buffer
   const VkBufferCreateInfo uniform_buffer_info{
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -191,6 +204,9 @@ void shutdown() {
   vmaUnmapMemory(context.allocator, vk_vertex_buffer_allocation);
   vmaDestroyBuffer(context.allocator, vk_vertex_buffer,
                    vk_vertex_buffer_allocation);
+  vmaUnmapMemory(context.allocator, vk_index_buffer_allocation);
+  vmaDestroyBuffer(context.allocator, vk_index_buffer,
+      vk_index_buffer_allocation);
   vmaUnmapMemory(context.allocator, vk_uniform_buffer_allocation);
   vmaDestroyBuffer(context.allocator, vk_uniform_buffer, vk_uniform_buffer_allocation);
 }
@@ -245,7 +261,6 @@ void update([[maybe_unused]] double time) {
          sizeof(GlobalUniforms::local_coords_matrix));
 }
 void ImGui_update(double time){
-    ImGui::ShowDemoWindow();
     ImGui::Begin("Awesome engine configuration");
     if(ImGui::CollapsingHeader("2D Projection settings")){
         ImGui::RadioButton("Projection matrix", &g_matrix_to_use, PROJECTION_MATRIX_ID); ImGui::SameLine();
@@ -343,12 +358,11 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
-  memcpy(vk_vertex_buffer_memory, vertices.data(),
-         vertices.size() * sizeof(graphics::Vertex));
   VkDeviceSize offset = 0;
   vkCmdBindVertexBuffers(fd.command_buffer, 0, 1, &vk_vertex_buffer, &offset);
+  vkCmdBindIndexBuffer(fd.command_buffer, vk_index_buffer, 0, VK_INDEX_TYPE_UINT16);
   vkCmdBindDescriptorSets(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics::triangle_pipeline_layout, 0, 1, &vk_uniform_descriptor_set, 0, nullptr);
-  vkCmdDraw(fd.command_buffer, vertices.size(), 1, 0, 0);
+  vkCmdDrawIndexed(fd.command_buffer, static_cast<uint32_t>(indexes.size()), 1, 0, 0,0);
 
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
