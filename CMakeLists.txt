@@ -9,7 +9,8 @@ source/main.cpp
 source/graphics_internal.cpp
 source/${LAB}/animation.cpp
 source/${LAB}/application.cpp
-source/${LAB}/graphics.cpp
+source/${LAB}/graphics/graphics.cpp
+source/${LAB}/graphics/figure.cpp
 )
 target_compile_definitions(${PROJECT_NAME} PUBLIC
   ${LAB}

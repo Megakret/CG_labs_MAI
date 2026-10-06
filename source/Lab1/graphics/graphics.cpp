@@ -1,5 +1,5 @@
 #include "graphics.hpp"
-#include "../graphics_internal.hpp"
+#include "../../graphics_internal.hpp"
 
 #include <cstddef>
 #include <cstdint>
