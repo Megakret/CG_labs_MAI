@@ -11,5 +11,6 @@ namespace graphics{
             std::array<float, 3> rotation = {0,0,0};
         public:
             glm::mat4 GetViewMatrix();
+            glm::vec3 GetLookDirection();
     };
 }

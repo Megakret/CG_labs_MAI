@@ -75,8 +75,8 @@ const std::vector<uint16_t> indexes{
 };
 VkDescriptorPool g_vk_descriptor_pool;
 std::vector<graphics::Figure> g_figures;
-struct SceneBuffer{
-    float view_projection_matrix[4][4];
+struct SceneBuffer {
+  float view_projection_matrix[4][4];
 };
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
 graphics::Camera g_camera;
@@ -114,8 +114,11 @@ bool initialize() {
     std::cerr << "Failed to create a descriptor pool\n";
     return false;
   }
-  //Scene
-  g_scene_uniform_buffer = std::make_unique<graphics::UniformBuffer<SceneBuffer>>(g_vk_descriptor_pool, graphics::g_scene_descriptor_layout, SCENE_SET_ID);
+  // Scene
+  g_scene_uniform_buffer =
+      std::make_unique<graphics::UniformBuffer<SceneBuffer>>(
+          g_vk_descriptor_pool, graphics::g_scene_descriptor_layout,
+          SCENE_SET_ID);
   // Models
   g_figures.reserve(FIGURE_COUNT);
   for (int i = 0; i < FIGURE_COUNT; i++) {
@@ -141,12 +144,13 @@ const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
 float g_fov = 70.0f;
 double g_prev_time = 0;
-namespace camera_controls{
-    bool g_prev_pressed_mbr;
-    glm::vec2 g_prev_mouse_pos;
-    float g_sensitivity = 1.0f;
-    const float MAX_Y_ROTATION = 80.0f;
-};
+namespace camera_controls {
+bool g_prev_pressed_mbr;
+glm::vec2 g_prev_mouse_pos;
+float g_sensitivity = 5.0f;
+float g_camera_speed = 10.0f;
+const float MAX_Y_ROTATION = 80.0f;
+}; // namespace camera_controls
 glm::mat4 GetProjectionMatrix() {
   auto &context = graphics::internal::context;
   glm::mat4 projection_matrix(1.0f);
@@ -175,11 +179,11 @@ void ImGui_update() {
                        ORTOGRAPHIC_MATRIX_ID);
     ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
   }
-  if(ImGui::CollapsingHeader("Camera settings")){
-      ImGui::InputFloat3("Position of the center",
-                         g_camera.position.data());
-      ImGui::InputFloat3("Euler angle", g_camera.rotation.data());
-      ImGui::SliderFloat("Sensitivity", &camera_controls::g_sensitivity, 0.1f, 4.0f);
+  if (ImGui::CollapsingHeader("Camera settings")) {
+    ImGui::InputFloat3("Position of the center", g_camera.position.data());
+    ImGui::SliderFloat("Sensitivity", &camera_controls::g_sensitivity, 0.1f,
+                       10.0f);
+    ImGui::SliderFloat("Speed", &camera_controls::g_camera_speed, 0.1f, 100.0f);
   }
   ImGui::End();
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
@@ -247,31 +251,57 @@ void ImGui_update() {
     ImGui::End();
   }
 }
-void update([[maybe_unused]] double time, GLFWwindow* window) {
+void update([[maybe_unused]] double time, GLFWwindow *window) {
   double delta_time = time - g_prev_time;
   g_prev_time = time;
   ImGui_update();
-  //Camera input
+  // Camera input
+  // Rotation
   double mx, my;
   glfwGetCursorPos(window, &mx, &my);
   glm::vec2 cur_cursor_pos(mx, my);
-  if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS){
-     if(camera_controls::g_prev_pressed_mbr){
-         glm::vec2 drag_direction = cur_cursor_pos - camera_controls::g_prev_mouse_pos;
-         camera_controls::g_prev_mouse_pos = cur_cursor_pos;
-         drag_direction *= camera_controls::g_sensitivity * delta_time;
-         g_camera.rotation[1] += drag_direction.x;
-         g_camera.rotation[0] += drag_direction.y;
-     }
-     camera_controls::g_prev_pressed_mbr = true;
-  }else{
-      camera_controls::g_prev_pressed_mbr = false;
+  if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+    if (camera_controls::g_prev_pressed_mbr) {
+      glm::vec2 drag_direction =
+          cur_cursor_pos - camera_controls::g_prev_mouse_pos;
       camera_controls::g_prev_mouse_pos = cur_cursor_pos;
+      drag_direction *= camera_controls::g_sensitivity * delta_time;
+      g_camera.rotation[1] += drag_direction.x;
+      g_camera.rotation[0] -= drag_direction.y;
+    }
+    camera_controls::g_prev_pressed_mbr = true;
+  } else {
+    camera_controls::g_prev_pressed_mbr = false;
+    camera_controls::g_prev_mouse_pos = cur_cursor_pos;
   }
-  if(glm::abs(g_camera.rotation[0]) > camera_controls::MAX_Y_ROTATION){
-      g_camera.rotation[0] = glm::sign(g_camera.rotation[0]) * camera_controls::MAX_Y_ROTATION;
+  if (glm::abs(g_camera.rotation[0]) > camera_controls::MAX_Y_ROTATION) {
+    g_camera.rotation[0] =
+        glm::sign(g_camera.rotation[0]) * camera_controls::MAX_Y_ROTATION;
   }
-  //Figure animation
+  // Movement
+  glm::vec3 look_direction = g_camera.GetLookDirection();
+  glm::vec3 camera_position = glm::make_vec3(g_camera.position.data());
+  glm::vec3 move_vector(0.0f, 0.0f, 0.0f);
+  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+    move_vector += look_direction;
+  }
+  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+    move_vector -= look_direction;
+  }
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+    move_vector -= glm::normalize(glm::cross(look_direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+  }
+  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+    move_vector += glm::normalize(glm::cross(look_direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+  }
+  if(move_vector != glm::vec3(0)){
+      move_vector = glm::normalize(move_vector);
+  }
+  camera_position += move_vector * camera_controls::g_camera_speed *
+                     static_cast<float>(delta_time);
+  memcpy(g_camera.position.data(), glm::value_ptr(camera_position),
+         sizeof(g_camera.position));
+  // Figure animation
   for (size_t i = 0; i < g_figure_configs.size(); i++) {
     auto &config = g_figure_configs[i];
     if (!config.animation_config.is_paused) {
@@ -315,7 +345,8 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
-  g_scene_uniform_buffer->Bind(fd.command_buffer, graphics::triangle_pipeline_layout, SCENE_BINDING);
+  g_scene_uniform_buffer->Bind(
+      fd.command_buffer, graphics::triangle_pipeline_layout, SCENE_BINDING);
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
     auto &figure = g_figures[i];
     auto &config = g_figure_configs[i];
@@ -328,8 +359,10 @@ void render(const graphics::internal::FrameData &fd) {
   glm::mat4 projection_matrix = GetProjectionMatrix();
   glm::mat4 view_matrix = g_camera.GetViewMatrix();
   glm::mat4 projection_view_matrix = projection_matrix * view_matrix;
-  SceneBuffer* scene_buffer_mem_ptr = g_scene_uniform_buffer->GetPtr();
-  memcpy(scene_buffer_mem_ptr->view_projection_matrix, glm::value_ptr(projection_view_matrix), sizeof(scene_buffer_mem_ptr->view_projection_matrix));
+  SceneBuffer *scene_buffer_mem_ptr = g_scene_uniform_buffer->GetPtr();
+  memcpy(scene_buffer_mem_ptr->view_projection_matrix,
+         glm::value_ptr(projection_view_matrix),
+         sizeof(scene_buffer_mem_ptr->view_projection_matrix));
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
   vkEndCommandBuffer(fd.command_buffer);
