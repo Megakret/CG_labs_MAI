@@ -1,15 +1,12 @@
 #include "animation.hpp"
+
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
+#include "glm/gtc/type_ptr.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
-#include "glm/ext/matrix_clip_space.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "glm/gtc/type_ptr.hpp"
-#include <cmath>
 #include <cstring>
+
 namespace animation {
 AnimationStep &AnimationEngine::GetStepRef(size_t i) { return steps[i]; }
 size_t AnimationEngine::GetStepsCount() { return steps.size(); }

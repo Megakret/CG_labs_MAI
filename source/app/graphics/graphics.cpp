@@ -1,5 +1,4 @@
 #include "graphics.hpp"
-#include "../../graphics_internal.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -7,7 +6,10 @@
 #include <iostream>
 #include <sys/types.h>
 #include <vector>
+
 #include <vulkan/vulkan_core.h>
+
+#include "../../graphics_internal.hpp"
 
 namespace graphics {
 

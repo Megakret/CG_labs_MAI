@@ -6,18 +6,15 @@
 #include <imgui.h>
 #include <iostream>
 
-#include "../graphics_internal.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "glm/gtc/quaternion.hpp"
-#include "glm/gtc/type_ptr.hpp"
 #include <vulkan/vulkan_core.h>
 
+#include "../graphics_internal.hpp"
 #include "animation.hpp"
 #include "graphics/figure.hpp"
 #include "graphics/graphics.hpp"
+
 namespace application {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 struct AnimationConfig {
@@ -72,7 +69,7 @@ VkDescriptorPool vk_descriptor_pool;
 std::vector<graphics::Figure> g_figures;
 
 void SetStarterAnimation() {
-for(auto& engine: g_animation_engines){
+  for (auto &engine : g_animation_engines) {
     engine.AddStep();
     engine.AddStep();
     auto &step1 = engine.GetStepRef(0);
@@ -87,7 +84,7 @@ for(auto& engine: g_animation_engines){
     step2.p3 = {5, 5, -10};
     step2.rotation_start = {0, 90, 0};
     step2.rotation_end = {0, 180, 0};
-}
+  }
 }
 bool initialize() {
   auto &context = graphics::internal::context;
@@ -106,9 +103,9 @@ bool initialize() {
     return false;
   }
   g_figures.reserve(FIGURE_COUNT);
-  for(int i = 0; i < FIGURE_COUNT; i++){
-      g_figures.emplace_back(OCTAHEDRON_SHAPE, vk_descriptor_pool,
-                             graphics::descriptor_set_layout);
+  for (int i = 0; i < FIGURE_COUNT; i++) {
+    g_figures.emplace_back(OCTAHEDRON_SHAPE, vk_descriptor_pool,
+                           graphics::descriptor_set_layout);
   }
   SetStarterAnimation();
   return true;
@@ -128,23 +125,23 @@ const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
 float g_fov = 70.0f;
 double g_prev_time = 0;
-glm::mat4 GetProjectionMatrix(){
-    auto& context = graphics::internal::context;
-    glm::mat4 projection_matrix(1.0f);
-    if (g_matrix_to_use == PROJECTION_MATRIX_ID) {
-      projection_matrix = glm::perspectiveFov(
-          glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
-          static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
-    } else if (g_matrix_to_use == ORTOGRAPHIC_MATRIX_ID) {
-      const float w = static_cast<float>(context.swapchain_extent.width);
-      const float h = static_cast<float>(context.swapchain_extent.height);
-      const float aspect = w / h;
-      const float half_height = 10.0f;
-      const float half_width = half_height * aspect;
-      projection_matrix = glm::orthoZO(-half_width, half_width, -half_height,
-                                       half_height, 0.1f, 100.0f);
-    }
-    return projection_matrix;
+glm::mat4 GetProjectionMatrix() {
+  auto &context = graphics::internal::context;
+  glm::mat4 projection_matrix(1.0f);
+  if (g_matrix_to_use == PROJECTION_MATRIX_ID) {
+    projection_matrix = glm::perspectiveFov(
+        glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
+        static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
+  } else if (g_matrix_to_use == ORTOGRAPHIC_MATRIX_ID) {
+    const float w = static_cast<float>(context.swapchain_extent.width);
+    const float h = static_cast<float>(context.swapchain_extent.height);
+    const float aspect = w / h;
+    const float half_height = 10.0f;
+    const float half_width = half_height * aspect;
+    projection_matrix = glm::orthoZO(-half_width, half_width, -half_height,
+                                     half_height, 0.1f, 100.0f);
+  }
+  return projection_matrix;
 }
 void ImGui_update() {
   ImGui::Begin("Awesome engine configuration");
@@ -229,8 +226,9 @@ void update([[maybe_unused]] double time) {
   for (size_t i = 0; i < g_figure_configs.size(); i++) {
     auto &config = g_figure_configs[i];
     if (!config.animation_config.is_paused) {
-      g_animation_engines[i].Proceed(config.figure_state, config.animation_config.speed,
-                       delta_time, config.animation_config.is_looped);
+      g_animation_engines[i].Proceed(config.figure_state,
+                                     config.animation_config.speed, delta_time,
+                                     config.animation_config.is_looped);
     }
   }
 }
@@ -269,15 +267,14 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
-    auto& figure = g_figures[i];
-    auto& config = g_figure_configs[i];
+    auto &figure = g_figures[i];
+    auto &config = g_figure_configs[i];
     figure.Bind(fd.command_buffer);
     figure.Draw(fd.command_buffer);
     glm::mat4 projection_matrix = GetProjectionMatrix();
     figure.UpdateFigure(projection_matrix, config.figure_state.position,
-                              config.figure_state.rotation,
-                              config.figure_state.scale,
-                              config.figure_state.color);
+                        config.figure_state.rotation, config.figure_state.scale,
+                        config.figure_state.color);
   }
 
   // finalize the render pass

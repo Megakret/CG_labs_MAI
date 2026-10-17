@@ -1,6 +1,5 @@
 #include <climits>
 #include <cstdint>
-
 #include <iostream>
 
 #define GLFW_INCLUDE_NONE
@@ -10,9 +9,7 @@
 #include <imgui.h>
 
 #include "graphics_internal.hpp"
-#ifdef Lab1
-#include "Lab1/application.hpp"
-#endif
+#include "app/application.hpp"
 
 namespace {
 

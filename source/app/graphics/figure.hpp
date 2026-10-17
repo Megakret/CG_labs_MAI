@@ -1,9 +1,10 @@
 #pragma once
-#include "../../graphics_internal.hpp"
+
 #include "glm/fwd.hpp"
-#include "graphics.hpp"
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
+
+#include "graphics.hpp"
 
 namespace graphics {
 struct FigureState {

@@ -1,15 +1,16 @@
 #include "figure.hpp"
 
-#include <iostream>
 #include <string.h>
+#include <iostream>
 
-#include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/gtc/quaternion.hpp"
 #include "glm/gtc/type_ptr.hpp"
+
 #include <vulkan/vulkan_core.h>
+
+#include "../../graphics_internal.hpp"
 namespace graphics {
 Figure::Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
                VkDescriptorSetLayout descriptor_layout)
@@ -183,10 +184,10 @@ Figure::Figure(Figure &&other) noexcept {
   other.index_count = 0;
 }
 Figure &Figure::operator=(Figure &&other) noexcept {
-    if(this != &other){
-        this->~Figure();
-        Figure(std::move(other));
-    }
-    return *this;
+  if (this != &other) {
+    this->~Figure();
+    Figure(std::move(other));
+  }
+  return *this;
 }
 }; // namespace graphics
