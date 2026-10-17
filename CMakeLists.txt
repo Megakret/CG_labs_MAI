@@ -60,7 +60,16 @@ FetchContent_Declare(
  GIT_REPOSITORY	https://github.com/g-truc/glm.git
  GIT_TAG 	0af55ccecd98d4e5a8d1fad7de25ba429d60e863 #refs/tags/1.0.1
 )
+FetchContent_Declare(
+  fastgltf
+  GIT_REPOSITORY https://github.com/spnda/fastgltf.git
+  GIT_TAG        v0.9.1
+)
 
+set(FASTGLTF_ENABLE_TESTS       OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_EXAMPLES    OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_DOCS        OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_CPP_MODULES OFF CACHE BOOL "" FORCE)
 
 
 find_package(Vulkan REQUIRED)
@@ -76,6 +85,7 @@ FetchContent_MakeAvailable(
  VulkanMemoryAllocator
  imgui
  glm
+ fastgltf
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -84,6 +94,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
  vk-bootstrap::vk-bootstrap
  GPUOpen::VulkanMemoryAllocator
  glm::glm
+ fastgltf::fastgltf
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
