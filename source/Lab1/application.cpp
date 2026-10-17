@@ -123,7 +123,7 @@ void shutdown() {
   g_figures.clear();
 }
 double prev_time = 0;
-const int PROJECTION_MATRIX_ID = 0;
+const int PERSPECTIVE_MATRIX_ID = 0;
 const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
 float g_fov = 70.0f;
@@ -131,7 +131,7 @@ double g_prev_time = 0;
 glm::mat4 GetProjectionMatrix(){
     auto& context = graphics::internal::context;
     glm::mat4 projection_matrix(1.0f);
-    if (g_matrix_to_use == PROJECTION_MATRIX_ID) {
+    if (g_matrix_to_use == PERSPECTIVE_MATRIX_ID) {
       projection_matrix = glm::perspectiveFov(
           glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
           static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
@@ -149,8 +149,8 @@ glm::mat4 GetProjectionMatrix(){
 void ImGui_update() {
   ImGui::Begin("Awesome engine configuration");
   if (ImGui::CollapsingHeader("2D Projection settings")) {
-    ImGui::RadioButton("Projection matrix", &g_matrix_to_use,
-                       PROJECTION_MATRIX_ID);
+    ImGui::RadioButton("Perspective matrix", &g_matrix_to_use,
+                       PERSPECTIVE_MATRIX_ID);
     ImGui::SameLine();
     ImGui::RadioButton("Ortographic matrix", &g_matrix_to_use,
                        ORTOGRAPHIC_MATRIX_ID);
