@@ -8,7 +8,8 @@
 namespace graphics {
 extern VkPipelineLayout triangle_pipeline_layout;
 extern VkPipeline triangle_pipeline;
-extern VkDescriptorSetLayout descriptor_set_layout;
+extern VkDescriptorSetLayout g_scene_descriptor_layout;
+extern VkDescriptorSetLayout g_figure_descriptor_layout;
 
 bool load_shared_module(const char *filepath, VkShaderModule *vk_shared_module);
 void init_pipelines();
@@ -44,7 +45,7 @@ rasterization_state_create_info(VkPolygonMode polygonMode);
 VkPipelineMultisampleStateCreateInfo multisampling_state_create_info();
 VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 VkPipelineLayoutCreateInfo
-pipeline_layout_create_info(VkDescriptorSetLayout *layout);
+pipeline_layout_create_info(std::span<VkDescriptorSetLayout> layouts);
 VkDescriptorSetLayout create_descriptor_set_layout(
     std::span<const VkDescriptorSetLayoutBinding> bindings);
 } // namespace graphics

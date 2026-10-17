@@ -5,8 +5,11 @@
 #include <vulkan/vulkan_core.h>
 
 #include "graphics.hpp"
+#include "uniform_buffer.hpp"
 
 namespace graphics {
+const uint32_t FIGURE_SET_ID = 1;
+const uint32_t FIGURE_BINDING = 0;
 struct FigureState {
   std::array<float, 3> position = {0, 0, -20.0f};
   std::array<float, 3> rotation = {0, 0, 0};
@@ -20,8 +23,7 @@ public:
     std::vector<uint16_t> indices;
   };
   struct UniformData {
-    float local_coords_matrix[4][4];
-    float transform_projection_matrix[4][4];
+    float model[4][4];
     float color[3];
   };
 
@@ -32,10 +34,9 @@ public:
   Figure(Figure &&) noexcept;
   Figure &operator=(const Figure &) = delete;
   Figure &operator=(Figure &&) noexcept;
-  void Bind(VkCommandBuffer command_buffer);
+  void Bind(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout);
   void Draw(VkCommandBuffer command_buffer);
-  void UpdateFigure(const glm::mat4 &projection_matrix,
-                    const std::array<float, 3> &position,
+  void UpdateFigure(const std::array<float, 3> &position,
                     const std::array<float, 3> &rotation,
                     const std::array<float, 3> &scale,
                     const std::array<float, 3> &color);
@@ -50,10 +51,7 @@ private:
   VmaAllocation vk_index_buffer_allocation;
   uint16_t *vk_index_buffer_memory;
 
-  VkBuffer vk_uniform_buffer;
-  VmaAllocation vk_uniform_buffer_allocation;
-  UniformData *vk_uniform_buffer_memory;
-  VkDescriptorSet vk_uniform_descriptor_set;
+  UniformBuffer<UniformData> uniform_buffer;
   size_t index_count = 0;
 };
 } // namespace graphics

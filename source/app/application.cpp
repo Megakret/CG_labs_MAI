@@ -5,6 +5,7 @@
 #include <format>
 #include <imgui.h>
 #include <iostream>
+#include <memory>
 
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -12,8 +13,10 @@
 
 #include "../graphics_internal.hpp"
 #include "animation.hpp"
+#include "glm/gtc/type_ptr.hpp"
 #include "graphics/figure.hpp"
 #include "graphics/graphics.hpp"
+#include "graphics/uniform_buffer.hpp"
 
 namespace application {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -27,9 +30,10 @@ struct FigureConfig {
   AnimationConfig animation_config;
 };
 const int FIGURE_COUNT = 2;
+const uint32_t SCENE_SET_ID = 0;
+const uint32_t SCENE_BINDING = 0;
 std::vector<animation::AnimationEngine> g_animation_engines(FIGURE_COUNT);
 std::vector<FigureConfig> g_figure_configs(FIGURE_COUNT);
-
 graphics::Figure::Shape OCTAHEDRON_SHAPE = {
     .vertices =
         std::vector<graphics::Vertex>{
@@ -65,9 +69,13 @@ const std::vector<uint16_t> indexes{
     1, 2, 5, // -X +Y -Z
     0, 5, 2, // +X +Y -Z
 };
-VkDescriptorPool vk_descriptor_pool;
+VkDescriptorPool g_vk_descriptor_pool;
 std::vector<graphics::Figure> g_figures;
+struct SceneBuffer{
+    float view_projection_matrix[4][4];
+};
 
+std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
 void SetStarterAnimation() {
   for (auto &engine : g_animation_engines) {
     engine.AddStep();
@@ -93,19 +101,22 @@ bool initialize() {
       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 4}};
   const VkDescriptorPoolCreateInfo descriptor_pool_info{
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .maxSets = 2,
+      .maxSets = 3,
       .poolSizeCount =
           sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
       .pPoolSizes = descriptor_pool_sizes};
   if (vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr,
-                             &vk_descriptor_pool) != VK_SUCCESS) {
+                             &g_vk_descriptor_pool) != VK_SUCCESS) {
     std::cerr << "Failed to create a descriptor pool\n";
     return false;
   }
+  //Scene
+  g_scene_uniform_buffer = std::make_unique<graphics::UniformBuffer<SceneBuffer>>(g_vk_descriptor_pool, graphics::g_scene_descriptor_layout, SCENE_SET_ID);
+  // Models
   g_figures.reserve(FIGURE_COUNT);
   for (int i = 0; i < FIGURE_COUNT; i++) {
-    g_figures.emplace_back(OCTAHEDRON_SHAPE, vk_descriptor_pool,
-                           graphics::descriptor_set_layout);
+    g_figures.emplace_back(OCTAHEDRON_SHAPE, g_vk_descriptor_pool,
+                           graphics::g_figure_descriptor_layout);
   }
   SetStarterAnimation();
   return true;
@@ -266,17 +277,19 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
+  g_scene_uniform_buffer->Bind(fd.command_buffer, graphics::triangle_pipeline_layout, SCENE_BINDING);
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
     auto &figure = g_figures[i];
     auto &config = g_figure_configs[i];
-    figure.Bind(fd.command_buffer);
+    figure.Bind(fd.command_buffer, graphics::triangle_pipeline_layout);
     figure.Draw(fd.command_buffer);
-    glm::mat4 projection_matrix = GetProjectionMatrix();
-    figure.UpdateFigure(projection_matrix, config.figure_state.position,
+    figure.UpdateFigure(config.figure_state.position,
                         config.figure_state.rotation, config.figure_state.scale,
                         config.figure_state.color);
   }
-
+  glm::mat4 projection_matrix = GetProjectionMatrix();
+  SceneBuffer* scene_buffer_mem_ptr = g_scene_uniform_buffer->GetPtr();
+  memcpy(scene_buffer_mem_ptr->view_projection_matrix, glm::value_ptr(projection_matrix), sizeof(scene_buffer_mem_ptr->view_projection_matrix));
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
   vkEndCommandBuffer(fd.command_buffer);

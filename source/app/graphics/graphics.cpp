@@ -18,7 +18,9 @@ const char *FRAGMENT_SHADER_PATH = "shaders/fragment.frag.spv";
 
 VkPipelineLayout triangle_pipeline_layout;
 VkPipeline triangle_pipeline;
-VkDescriptorSetLayout descriptor_set_layout;
+
+VkDescriptorSetLayout g_scene_descriptor_layout;
+VkDescriptorSetLayout g_figure_descriptor_layout;
 
 bool load_shader_module(const char *filepath,
                         VkShaderModule *out_shader_module) {
@@ -46,8 +48,8 @@ bool load_shader_module(const char *filepath,
   return true;
 }
 void init_pipelines() {
-  VkShaderModule triangleFragShader;
-  if (!load_shader_module(FRAGMENT_SHADER_PATH, &triangleFragShader)) {
+  VkShaderModule triangle_frag_shader;
+  if (!load_shader_module(FRAGMENT_SHADER_PATH, &triangle_frag_shader)) {
     std::cerr << "Error when building the triangle fragment shader module"
               << std::endl;
   } else {
@@ -62,21 +64,29 @@ void init_pipelines() {
   } else {
     std::cout << "Triangle vertex shader successfully loaded" << std::endl;
   }
-  const VkDescriptorSetLayoutBinding descriptor_set_layout_bindings[]{
-      VkDescriptorSetLayoutBinding{
-          .binding = 0,
-          .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-          .descriptorCount = 1,
-          .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-      }};
-  descriptor_set_layout = create_descriptor_set_layout(std::span(descriptor_set_layout_bindings, 1));
+  const std::array<VkDescriptorSetLayoutBinding, 1>
+      descriptor_set_layout_bindings{
+          VkDescriptorSetLayoutBinding{
+              .binding = 0,
+              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags =
+                  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+          },
+      };
+  std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts{
+      create_descriptor_set_layout(std::span(descriptor_set_layout_bindings)),
+      create_descriptor_set_layout(std::span(descriptor_set_layout_bindings)),
+  };
   VkPipelineLayoutCreateInfo pipeline_layout_info =
-      pipeline_layout_create_info(&descriptor_set_layout);
+      pipeline_layout_create_info(std::span(descriptor_set_layouts));
   if (vkCreatePipelineLayout(graphics::internal::context.device,
                              &pipeline_layout_info, nullptr,
                              &triangle_pipeline_layout) != VK_SUCCESS) {
     std::cerr << "Couldn't create pipeline layout create info";
   }
+  g_scene_descriptor_layout = descriptor_set_layouts[0];
+  g_figure_descriptor_layout = descriptor_set_layouts[1];
   // layout and shader modules creation
 
   // build the stage-create-info for both vertex and fragment stages. This lets
@@ -87,7 +97,7 @@ void init_pipelines() {
       VK_SHADER_STAGE_VERTEX_BIT, triangle_vertex_shader));
 
   pipelineBuilder.shader_stages.push_back(pipeline_shader_stage_create_info(
-      VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
+      VK_SHADER_STAGE_FRAGMENT_BIT, triangle_frag_shader));
 
   const std::array<VkVertexInputBindingDescription, 1> bindings{
       VkVertexInputBindingDescription{.binding = 0,
@@ -264,10 +274,9 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
   colorBlending.attachmentCount = 1;
   colorBlending.pAttachments = &color_blend_attachment;
   const VkPipelineDepthStencilStateCreateInfo depth_stencil_info{
-     .depthTestEnable = VK_TRUE,
-     .depthWriteEnable = VK_TRUE,
-     .depthCompareOp = VK_COMPARE_OP_LESS
-  };
+      .depthTestEnable = VK_TRUE,
+      .depthWriteEnable = VK_TRUE,
+      .depthCompareOp = VK_COMPARE_OP_LESS};
   VkGraphicsPipelineCreateInfo pipelineInfo = {};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineInfo.pNext = nullptr;
@@ -298,30 +307,31 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     return newPipeline;
   }
 }
-VkPipelineLayoutCreateInfo pipeline_layout_create_info(VkDescriptorSetLayout* descriptor_set_layout) {
+VkPipelineLayoutCreateInfo
+pipeline_layout_create_info(std::span<VkDescriptorSetLayout> set_layouts) {
   VkPipelineLayoutCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   info.pNext = nullptr;
 
   info.flags = 0;
-  info.setLayoutCount = 1;
-  info.pSetLayouts = descriptor_set_layout;
+  info.setLayoutCount = set_layouts.size();
+  info.pSetLayouts = set_layouts.data();
   info.pushConstantRangeCount = 0;
   info.pPushConstantRanges = nullptr;
   return info;
 }
-VkDescriptorSetLayout create_descriptor_set_layout(std::span<const VkDescriptorSetLayoutBinding> bindings){
-    const VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = static_cast<uint32_t>(bindings.size()),
-        .pBindings = bindings.data()
-    };
-    VkDescriptorSetLayout descriptor_set_layout;
-    if (vkCreateDescriptorSetLayout(internal::context.device,
-                                    &descriptor_set_layout_info, nullptr,
-                                    &descriptor_set_layout) != VK_SUCCESS) {
-      std::cerr << "Coudln't create descriptor set layout\n";
-    }
-    return descriptor_set_layout;
+VkDescriptorSetLayout create_descriptor_set_layout(
+    std::span<const VkDescriptorSetLayoutBinding> bindings) {
+  const VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .bindingCount = static_cast<uint32_t>(bindings.size()),
+      .pBindings = bindings.data()};
+  VkDescriptorSetLayout descriptor_set_layout;
+  if (vkCreateDescriptorSetLayout(internal::context.device,
+                                  &descriptor_set_layout_info, nullptr,
+                                  &descriptor_set_layout) != VK_SUCCESS) {
+    std::cerr << "Coudln't create descriptor set layout\n";
+  }
+  return descriptor_set_layout;
 }
 } // namespace graphics
