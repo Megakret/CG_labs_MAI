@@ -5,17 +5,15 @@ layout(location = 1) in vec3 in_color;
 
 layout(location = 0) out vec3 outColor;
 
-layout(std140, set = 0, binding = 0) uniform GlobalUniforms {
-    mat4 local_coords_matrix;
-    mat4 transform_proj_matrix;
+layout(std140, set = 0, binding = 0) uniform SceneUniform{
+    mat4 projection_view;
+} scene_uniform;
+layout(std140, set = 1, binding = 0) uniform FigureUniform{
+    mat4 model;
     vec3 main_color;
-} global_uniforms;
-vec3 color_from_coords(vec3 local_coords){
-    return abs(normalize(local_coords));
-}
+} figure_uniforms;
 void main()
 {
-    vec4 local_coords = global_uniforms.local_coords_matrix * vec4(in_position, 1.0f);
-    gl_Position = global_uniforms.transform_proj_matrix* local_coords;
-    outColor = color_from_coords(vec3(local_coords));
+    gl_Position = (scene_uniform.projection_view * figure_uniforms.model) * vec4(in_position, 1.0f);
+    outColor = in_color * figure_uniforms.main_color;
 }

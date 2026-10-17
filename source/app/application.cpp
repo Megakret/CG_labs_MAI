@@ -14,6 +14,7 @@
 #include "../graphics_internal.hpp"
 #include "animation.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include "graphics/camera.hpp"
 #include "graphics/figure.hpp"
 #include "graphics/graphics.hpp"
 #include "graphics/uniform_buffer.hpp"
@@ -74,8 +75,8 @@ std::vector<graphics::Figure> g_figures;
 struct SceneBuffer{
     float view_projection_matrix[4][4];
 };
-
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
+graphics::Camera g_camera;
 void SetStarterAnimation() {
   for (auto &engine : g_animation_engines) {
     engine.AddStep();
@@ -129,6 +130,7 @@ void shutdown() {
   vkDestroyPipelineLayout(context.device, graphics::triangle_pipeline_layout,
                           nullptr);
   g_figures.clear();
+  g_scene_uniform_buffer = nullptr;
 }
 double prev_time = 0;
 const int PROJECTION_MATRIX_ID = 0;
@@ -155,14 +157,19 @@ glm::mat4 GetProjectionMatrix() {
   return projection_matrix;
 }
 void ImGui_update() {
-  ImGui::Begin("Awesome engine configuration");
-  if (ImGui::CollapsingHeader("2D Projection settings")) {
+  ImGui::Begin("Scene settings");
+  if (ImGui::CollapsingHeader("Projection settings")) {
     ImGui::RadioButton("Projection matrix", &g_matrix_to_use,
                        PROJECTION_MATRIX_ID);
     ImGui::SameLine();
     ImGui::RadioButton("Ortographic matrix", &g_matrix_to_use,
                        ORTOGRAPHIC_MATRIX_ID);
     ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
+  }
+  if(ImGui::CollapsingHeader("Camera settings")){
+      ImGui::InputFloat3("Position of the center",
+                         g_camera.position.data());
+      ImGui::InputFloat3("Euler angle", g_camera.rotation.data());
   }
   ImGui::End();
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
@@ -288,8 +295,10 @@ void render(const graphics::internal::FrameData &fd) {
                         config.figure_state.color);
   }
   glm::mat4 projection_matrix = GetProjectionMatrix();
+  glm::mat4 view_matrix = g_camera.GetViewMatrix();
+  glm::mat4 projection_view_matrix = projection_matrix * view_matrix;
   SceneBuffer* scene_buffer_mem_ptr = g_scene_uniform_buffer->GetPtr();
-  memcpy(scene_buffer_mem_ptr->view_projection_matrix, glm::value_ptr(projection_matrix), sizeof(scene_buffer_mem_ptr->view_projection_matrix));
+  memcpy(scene_buffer_mem_ptr->view_projection_matrix, glm::value_ptr(projection_view_matrix), sizeof(scene_buffer_mem_ptr->view_projection_matrix));
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
   vkEndCommandBuffer(fd.command_buffer);
