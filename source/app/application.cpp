@@ -7,12 +7,15 @@
 #include <iostream>
 #include <memory>
 
+#include "GLFW/glfw3.h"
+#include "glm/common.hpp"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include <vulkan/vulkan_core.h>
 
 #include "../graphics_internal.hpp"
 #include "animation.hpp"
+#include "glm/geometric.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/figure.hpp"
@@ -138,6 +141,12 @@ const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
 float g_fov = 70.0f;
 double g_prev_time = 0;
+namespace camera_controls{
+    bool g_prev_pressed_mbr;
+    glm::vec2 g_prev_mouse_pos;
+    float g_sensitivity = 1.0f;
+    const float MAX_Y_ROTATION = 80.0f;
+};
 glm::mat4 GetProjectionMatrix() {
   auto &context = graphics::internal::context;
   glm::mat4 projection_matrix(1.0f);
@@ -170,6 +179,7 @@ void ImGui_update() {
       ImGui::InputFloat3("Position of the center",
                          g_camera.position.data());
       ImGui::InputFloat3("Euler angle", g_camera.rotation.data());
+      ImGui::SliderFloat("Sensitivity", &camera_controls::g_sensitivity, 0.1f, 4.0f);
   }
   ImGui::End();
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
@@ -237,10 +247,31 @@ void ImGui_update() {
     ImGui::End();
   }
 }
-void update([[maybe_unused]] double time) {
+void update([[maybe_unused]] double time, GLFWwindow* window) {
   double delta_time = time - g_prev_time;
   g_prev_time = time;
   ImGui_update();
+  //Camera input
+  double mx, my;
+  glfwGetCursorPos(window, &mx, &my);
+  glm::vec2 cur_cursor_pos(mx, my);
+  if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS){
+     if(camera_controls::g_prev_pressed_mbr){
+         glm::vec2 drag_direction = cur_cursor_pos - camera_controls::g_prev_mouse_pos;
+         camera_controls::g_prev_mouse_pos = cur_cursor_pos;
+         drag_direction *= camera_controls::g_sensitivity * delta_time;
+         g_camera.rotation[1] += drag_direction.x;
+         g_camera.rotation[0] += drag_direction.y;
+     }
+     camera_controls::g_prev_pressed_mbr = true;
+  }else{
+      camera_controls::g_prev_pressed_mbr = false;
+      camera_controls::g_prev_mouse_pos = cur_cursor_pos;
+  }
+  if(glm::abs(g_camera.rotation[0]) > camera_controls::MAX_Y_ROTATION){
+      g_camera.rotation[0] = glm::sign(g_camera.rotation[0]) * camera_controls::MAX_Y_ROTATION;
+  }
+  //Figure animation
   for (size_t i = 0; i < g_figure_configs.size(); i++) {
     auto &config = g_figure_configs[i];
     if (!config.animation_config.is_paused) {
