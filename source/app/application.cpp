@@ -118,7 +118,7 @@ bool initialize() {
   g_scene_uniform_buffer =
       std::make_unique<graphics::UniformBuffer<SceneBuffer>>(
           g_vk_descriptor_pool, graphics::g_scene_descriptor_layout,
-          SCENE_SET_ID);
+          SCENE_BINDING);
   // Models
   g_figures.reserve(FIGURE_COUNT);
   for (int i = 0; i < FIGURE_COUNT; i++) {
@@ -346,7 +346,7 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
   g_scene_uniform_buffer->Bind(
-      fd.command_buffer, graphics::triangle_pipeline_layout, SCENE_BINDING);
+      fd.command_buffer, graphics::triangle_pipeline_layout, SCENE_SET_ID);
   for (size_t i = 0; i < FIGURE_COUNT; i++) {
     auto &figure = g_figures[i];
     auto &config = g_figure_configs[i];
