@@ -7,6 +7,8 @@ layout(location = 0) out vec3 outColor;
 
 layout(std140, set = 0, binding = 0) uniform SceneUniform{
     mat4 projection_view;
+    vec3 ambient;
+    float ambient_strength;
 } scene_uniform;
 layout(std140, set = 1, binding = 0) uniform FigureUniform{
     mat4 model;

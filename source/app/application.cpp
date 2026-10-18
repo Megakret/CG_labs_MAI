@@ -22,6 +22,7 @@
 #include "graphics/camera.hpp"
 #include "graphics/figure.hpp"
 #include "graphics/graphics.hpp"
+#include "graphics/lightning.hpp"
 #include "graphics/uniform_buffer.hpp"
 #include "loaders/obj_loader.hpp"
 
@@ -57,8 +58,10 @@ VkDescriptorPool g_vk_descriptor_pool;
 std::unique_ptr<GameobjectManager> g_gameobject_manager;
 struct SceneBuffer {
   float view_projection_matrix[4][4];
+  graphics::SceneLightning lightning;
 };
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
+graphics::SceneLightning g_scene_lightning_config;
 graphics::Camera g_camera;
 void SetStarterAnimation() {
   for (auto gameobject : g_gameobject_manager->gameobjects) {
@@ -106,7 +109,8 @@ bool initialize() {
       g_vk_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
-  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0,-5,0}, {0,0,0}, {2,2,2});
+  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0, -5, 0}, {0, 0, 0},
+                                    {2, 2, 2});
   // Loading test model
   auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
   for (auto &shape : shapes) {
@@ -127,7 +131,7 @@ void shutdown() {
   g_scene_uniform_buffer = nullptr;
 }
 double prev_time = 0;
-const int PROJECTION_MATRIX_ID = 0;
+const int PERSPECTIVE_MATRIX_ID = 0;
 const int ORTOGRAPHIC_MATRIX_ID = 1;
 int g_matrix_to_use = 0;
 float g_fov = 70.0f;
@@ -142,7 +146,7 @@ const float MAX_Y_ROTATION = 80.0f;
 glm::mat4 GetProjectionMatrix() {
   auto &context = graphics::internal::context;
   glm::mat4 projection_matrix(1.0f);
-  if (g_matrix_to_use == PROJECTION_MATRIX_ID) {
+  if (g_matrix_to_use == PERSPECTIVE_MATRIX_ID) {
     projection_matrix = glm::perspectiveFov(
         glm::radians(g_fov), static_cast<float>(context.swapchain_extent.width),
         static_cast<float>(context.swapchain_extent.height), 0.1f, 100.0f);
@@ -160,18 +164,23 @@ glm::mat4 GetProjectionMatrix() {
 void ImGui_update() {
   ImGui::Begin("Scene settings");
   if (ImGui::CollapsingHeader("Projection settings")) {
-    ImGui::RadioButton("Projection matrix", &g_matrix_to_use,
-                       PROJECTION_MATRIX_ID);
+    ImGui::RadioButton("Perspective", &g_matrix_to_use, PERSPECTIVE_MATRIX_ID);
     ImGui::SameLine();
     ImGui::RadioButton("Ortographic matrix", &g_matrix_to_use,
                        ORTOGRAPHIC_MATRIX_ID);
     ImGui::SliderFloat("FOV", &g_fov, 10.0f, 120.0f);
   }
   if (ImGui::CollapsingHeader("Camera settings")) {
+
     ImGui::InputFloat3("Position of the center", g_camera.position.data());
     ImGui::SliderFloat("Sensitivity", &camera_controls::g_sensitivity, 0.1f,
                        10.0f);
     ImGui::SliderFloat("Speed", &camera_controls::g_camera_speed, 0.1f, 100.0f);
+  }
+  if (ImGui::CollapsingHeader("Lightning settings")) {
+    ImGui::ColorEdit3("Ambient color", g_scene_lightning_config.ambient.data());
+    ImGui::InputFloat("Ambient strength",
+                      &g_scene_lightning_config.ambient_strength);
   }
   ImGui::End();
   auto &gameobjects = g_gameobject_manager->gameobjects;
@@ -359,10 +368,12 @@ void render(const graphics::internal::FrameData &fd) {
   glm::mat4 projection_matrix = GetProjectionMatrix();
   glm::mat4 view_matrix = g_camera.GetViewMatrix();
   glm::mat4 projection_view_matrix = projection_matrix * view_matrix;
-  SceneBuffer *scene_buffer_mem_ptr = g_scene_uniform_buffer->GetPtr();
-  memcpy(scene_buffer_mem_ptr->view_projection_matrix,
+  SceneBuffer *scene_ptr = g_scene_uniform_buffer->GetPtr();
+  memcpy(scene_ptr->view_projection_matrix,
          glm::value_ptr(projection_view_matrix),
-         sizeof(scene_buffer_mem_ptr->view_projection_matrix));
+         sizeof(scene_ptr->view_projection_matrix));
+  memcpy(&(scene_ptr->lightning), &g_scene_lightning_config,
+         sizeof(g_scene_lightning_config));
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
   vkEndCommandBuffer(fd.command_buffer);
