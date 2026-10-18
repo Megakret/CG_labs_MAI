@@ -16,6 +16,7 @@ void init_pipelines();
 struct Vertex {
   std::array<float, 3> position;
   std::array<float, 3> color;
+  std::array<float, 3> normal;
 };
 
 class PipelineBuilder {

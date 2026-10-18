@@ -5,6 +5,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "graphics.hpp"
+#include "material.hpp"
 #include "uniform_buffer.hpp"
 
 namespace graphics {
@@ -25,6 +26,8 @@ public:
   struct UniformData {
     float model[4][4];
     float color[3];
+    float a;
+    graphics::Material material;
   };
 
 public:
@@ -40,6 +43,7 @@ public:
                     const std::array<float, 3> &rotation,
                     const std::array<float, 3> &scale,
                     const std::array<float, 3> &color);
+  void UpdateMaterial(const graphics::Material &material);
   ~Figure();
 
 private:

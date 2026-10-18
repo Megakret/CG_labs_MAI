@@ -109,8 +109,6 @@ bool initialize() {
       g_vk_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
-  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0, -5, 0}, {0, 0, 0},
-                                    {2, 2, 2});
   // Loading test model
   auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
   for (auto &shape : shapes) {
@@ -181,6 +179,8 @@ void ImGui_update() {
     ImGui::ColorEdit3("Ambient color", g_scene_lightning_config.ambient.data());
     ImGui::InputFloat("Ambient strength",
                       &g_scene_lightning_config.ambient_strength);
+    ImGui::InputFloat3("Sunlight direction",
+                       g_scene_lightning_config.sunlight_direction.data());
   }
   ImGui::End();
   auto &gameobjects = g_gameobject_manager->gameobjects;
@@ -199,6 +199,12 @@ void ImGui_update() {
       if (!gameobject->animation_engine.IsFinished()) {
         ImGui::EndDisabled();
       }
+    }
+    if(ImGui::CollapsingHeader("Material")){
+        auto& material = gameobject->material;
+        ImGui::ColorEdit3("Albedo", material.albedo.data());
+        ImGui::ColorEdit3("Specular strength", material.specular_strength.data());
+        ImGui::InputFloat("Shininess", &material.shininess);
     }
     if (ImGui::CollapsingHeader("Animations. Bezier")) {
       if (ImGui::Button("Add step")) {
@@ -364,6 +370,7 @@ void render(const graphics::internal::FrameData &fd) {
     figure.Draw(fd.command_buffer);
     figure.UpdateFigure(gameobject->position, gameobject->rotation,
                         gameobject->scale, gameobject->color);
+    figure.UpdateMaterial(gameobject->material);
   }
   glm::mat4 projection_matrix = GetProjectionMatrix();
   glm::mat4 view_matrix = g_camera.GetViewMatrix();

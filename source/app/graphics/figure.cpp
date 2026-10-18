@@ -11,6 +11,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "../../graphics_internal.hpp"
+#include "material.hpp"
 namespace graphics {
 Figure::Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
                VkDescriptorSetLayout descriptor_layout)
@@ -126,6 +127,10 @@ Figure::Figure(Figure &&other) noexcept
   other.vk_vertex_buffer_memory = nullptr;
   other.vk_index_buffer_memory = nullptr;
   other.index_count = 0;
+}
+void Figure::UpdateMaterial(const graphics::Material &material){
+    auto ptr = uniform_buffer.GetPtr();
+    memcpy(&(ptr->material), &material, sizeof(ptr->material));
 }
 Figure &Figure::operator=(Figure &&other) noexcept {
   if (this != &other) {

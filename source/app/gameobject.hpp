@@ -6,6 +6,7 @@
 
 #include "animation.hpp"
 #include "graphics/figure.hpp"
+#include "graphics/material.hpp"
 
 namespace application {
 class Gameobject {
@@ -18,6 +19,7 @@ public:
   std::array<float, 3> scale = {1,1,1};
   std::array<float, 3> color = {1,1,1};
   graphics::Figure figure;
+  graphics::Material material;
   animation::Config animation_config;
   animation::AnimationEngine animation_engine;
 };
