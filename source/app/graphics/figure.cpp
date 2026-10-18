@@ -65,12 +65,17 @@ Figure::Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
 }
 Figure::~Figure() {
   auto &context = graphics::internal::context;
-  vmaUnmapMemory(context.allocator, vk_vertex_buffer_allocation);
-  vmaDestroyBuffer(context.allocator, vk_vertex_buffer,
-                   vk_vertex_buffer_allocation);
-  vmaUnmapMemory(context.allocator, vk_index_buffer_allocation);
-  vmaDestroyBuffer(context.allocator, vk_index_buffer,
-                   vk_index_buffer_allocation);
+  if (vk_vertex_buffer != VK_NULL_HANDLE) {
+    vmaUnmapMemory(context.allocator, vk_vertex_buffer_allocation);
+    vmaDestroyBuffer(context.allocator, vk_vertex_buffer,
+                     vk_vertex_buffer_allocation);
+  }
+  if (vk_index_buffer != VK_NULL_HANDLE) {
+
+    vmaUnmapMemory(context.allocator, vk_index_buffer_allocation);
+    vmaDestroyBuffer(context.allocator, vk_index_buffer,
+                     vk_index_buffer_allocation);
+  }
 }
 void Figure::Bind(VkCommandBuffer command_buffer,
                   VkPipelineLayout pipeline_layout) {
@@ -125,7 +130,7 @@ Figure::Figure(Figure &&other) noexcept
 Figure &Figure::operator=(Figure &&other) noexcept {
   if (this != &other) {
     this->~Figure();
-    Figure(std::move(other));
+    new (this) Figure(std::move(other));
   }
   return *this;
 }

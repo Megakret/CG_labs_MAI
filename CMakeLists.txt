@@ -10,6 +10,7 @@ source/app/application.cpp
 source/app/graphics/graphics.cpp
 source/app/graphics/figure.cpp
 source/app/graphics/camera.cpp
+source/app/gameobject.cpp
 )
 
 if(LINUX)

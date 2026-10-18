@@ -17,19 +17,22 @@ private:
   VkDescriptorSet vk_uniform_descriptor_set;
 
 public:
-  UniformBuffer(VkDescriptorPool pool, VkDescriptorSetLayout layout, uint32_t binding);
+  UniformBuffer(VkDescriptorPool pool, VkDescriptorSetLayout layout,
+                uint32_t binding);
   UniformBuffer(const UniformBuffer<BufferT> &) = delete;
-  UniformBuffer<BufferT>& operator=(const UniformBuffer<BufferT> &) = delete;
+  UniformBuffer<BufferT> &operator=(const UniformBuffer<BufferT> &) = delete;
   UniformBuffer(UniformBuffer<BufferT> &&) noexcept;
-  UniformBuffer<BufferT>& operator=(UniformBuffer<BufferT> &&) noexcept;
+  UniformBuffer<BufferT> &operator=(UniformBuffer<BufferT> &&) noexcept;
   ~UniformBuffer();
 
   BufferT *GetPtr();
-  void Bind(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t set);
+  void Bind(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout,
+            uint32_t set);
 };
 template <typename BufferT>
 UniformBuffer<BufferT>::UniformBuffer(VkDescriptorPool pool,
-                                      VkDescriptorSetLayout layout, uint32_t binding) {
+                                      VkDescriptorSetLayout layout,
+                                      uint32_t binding) {
   auto &context = graphics::internal::context;
   const VkBufferCreateInfo uniform_buffer_info{
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -91,25 +94,29 @@ UniformBuffer<BufferT>::UniformBuffer(UniformBuffer<BufferT> &&other) noexcept {
   other.vk_uniform_buffer_memory = nullptr;
   other.vk_uniform_descriptor_set = VK_NULL_HANDLE;
 }
-template<typename BufferT>
-UniformBuffer<BufferT>::~UniformBuffer() {
-    auto &context = graphics::internal::context;
+template <typename BufferT> UniformBuffer<BufferT>::~UniformBuffer() {
+  auto &context = graphics::internal::context;
+  if (vk_uniform_buffer != VK_NULL_HANDLE) {
     vmaUnmapMemory(context.allocator, vk_uniform_buffer_allocation);
     vmaDestroyBuffer(context.allocator, vk_uniform_buffer,
                      vk_uniform_buffer_allocation);
+  }
 }
-template<typename BufferT>
-UniformBuffer<BufferT>& UniformBuffer<BufferT>::operator=(UniformBuffer<BufferT> && other) noexcept{
-    if (this != &other) {
-      this->~UniformBuffer<BufferT>();
-      UniformBuffer<BufferT>(std::move(other));
-    }
-    return *this;
+template <typename BufferT>
+UniformBuffer<BufferT> &
+UniformBuffer<BufferT>::operator=(UniformBuffer<BufferT> &&other) noexcept {
+  if (this != &other) {
+    this->~UniformBuffer<BufferT>();
+    new (this) UniformBuffer<BufferT>(std::move(other));
+  }
+  return *this;
 }
-template<typename BufferT>
-void UniformBuffer<BufferT>::Bind(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t set){
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline_layout, set, 1,
-                            &vk_uniform_descriptor_set, 0, nullptr);
+template <typename BufferT>
+void UniformBuffer<BufferT>::Bind(VkCommandBuffer command_buffer,
+                                  VkPipelineLayout pipeline_layout,
+                                  uint32_t set) {
+  vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          pipeline_layout, set, 1, &vk_uniform_descriptor_set,
+                          0, nullptr);
 }
 } // namespace graphics

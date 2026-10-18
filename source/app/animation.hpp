@@ -7,6 +7,11 @@
 
 namespace animation {
 // Bezier
+struct Config{
+  float speed = 1.0f;
+  bool is_paused = false;
+  bool is_looped = false;
+};
 struct AnimationStep {
   std::array<float, 3> p1;
   std::array<float, 3> p2;
@@ -28,7 +33,7 @@ public:
   void AddStep();
   bool RemoveStep(size_t i);
   bool IsFinished();
-  bool Proceed(graphics::FigureState &current_state, float speed, float dt,
+  graphics::FigureState Proceed(const graphics::FigureState &current_state, float speed, float dt,
                bool is_looping);
   void Start(graphics::FigureState &state);
   void Stop();
