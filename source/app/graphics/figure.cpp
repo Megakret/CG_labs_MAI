@@ -14,7 +14,7 @@
 namespace graphics {
 Figure::Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
                VkDescriptorSetLayout descriptor_layout)
-    : uniform_buffer(descriptor_pool, descriptor_layout, FIGURE_SET_ID),
+    : uniform_buffer(descriptor_pool, descriptor_layout, FIGURE_BINDING),
       index_count(shape.indices.size()) {
   auto &context = graphics::internal::context;
   // Vertex buffer
