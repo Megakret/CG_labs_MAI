@@ -3,6 +3,7 @@
 
 layout(location = 0) in vec3 in_color;
 layout(location = 1) in vec3 in_normal;
+layout(location = 2) in vec3 in_world_position;
 //output write
 layout(location = 0) out vec4 outFragColor;
 
@@ -25,9 +26,11 @@ layout(std140, set = 1, binding = 0) uniform FigureUniform{
 void main()
 {
     vec3 ambient = scene_uniform.ambient * scene_uniform.ambient_strength;
-    vec3 norm = normalize(in_normal);
-    vec3 light_dir = normalize(-scene_uniform.sunlight_direction);
-    float diff = max(dot(norm, light_dir), 0);
+    vec3 N = normalize(in_normal);
+    vec3 V = normalize(-scene_uniform.sunlight_direction);
+    vec3 H = reflect(scene_uniform.sunlight_direction, N);
+    float diff = max(dot(N, V), 0);
     vec3 diffuse = diff * figure_uniforms.albedo;
-    outFragColor = vec4(in_color * (ambient + diffuse), 1.0f);
+    vec3 specular = figure_uniforms.specular_strength * pow(max(dot(N,H), 0), min(figure_uniforms.shininess, 0.1f));
+    outFragColor = vec4(in_color * (ambient + diffuse + specular), 1.0f);
 }

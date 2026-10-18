@@ -6,6 +6,7 @@ layout(location = 2) in vec3 in_normal;
 
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec3 out_normal;
+layout(location = 2) out vec3 out_world_position;
 
 layout(std140, set = 0, binding = 0) uniform SceneUniform{
     mat4 projection_view;
@@ -26,7 +27,9 @@ layout(std140, set = 1, binding = 0) uniform FigureUniform{
 } figure_uniforms;
 void main()
 {
-    gl_Position = (scene_uniform.projection_view * figure_uniforms.model) * vec4(in_position, 1.0f);
+    vec4 world_position = figure_uniforms.model * vec4(in_position, 1.0f);
+    gl_Position = scene_uniform.projection_view * world_position;
     out_color= in_color * figure_uniforms.main_color;
     out_normal = mat3(figure_uniforms.model)*in_normal;
+    out_world_position = vec3(world_position);
 }

@@ -31,27 +31,39 @@ namespace application {
 const uint32_t SCENE_SET_ID = 0;
 const uint32_t SCENE_BINDING = 0;
 const std::filesystem::path TEST_OBJ_FILENAME = "models/viking_room.obj";
-graphics::Figure::Shape OCTAHEDRON_SHAPE = {
-    .vertices =
-        std::vector<graphics::Vertex>{
-            {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  // 0: +X
-            {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 1.0f}}, // 1: -X
-            {{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},  // 2: +Y
-            {{0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f}}, // 3: -Y
-            {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},  // 4: +Z
-            {{0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 0.0f}}, // 5: -Z
-        },
-    .indices =
-        std::vector<uint16_t>{
-            0, 2, 4, // +X +Y +Z
-            0, 4, 3, // +X -Y +Z
-            1, 3, 4, // -X -Y +Z
-            1, 4, 2, // -X +Y +Z
-            1, 5, 3, // -X -Y -Z
-            0, 3, 5, // +X -Y -Z
-            1, 2, 5, // -X +Y -Z
-            0, 5, 2, // +X +Y -Z
-        }
+graphics::Figure::Shape OCTAHEDRON_SHAPE =
+    {.vertices =
+         std::vector<graphics::Vertex>{
+             {{1.0f, 0.0f, 0.0f},
+              {1.0f, 0.0f, 0.0f},
+              {1.0f, 0.0f, 0.0f}}, // 0: +X
+             {{-1.0f, 0.0f, 0.0f},
+              {0.0f, 1.0f, 1.0f},
+              {-1.0f, 0.0f, 0.0f}}, // 1: -X
+             {{0.0f, 1.0f, 0.0f},
+              {0.0f, 1.0f, 0.0f},
+              {0.0f, 1.0f, 0.0f}}, // 2: +Y
+             {{0.0f, -1.0f, 0.0f},
+              {1.0f, 0.0f, 1.0f},
+              {0.0f, -1.0f, 0.0f}}, // 3: -Y
+             {{0.0f, 0.0f, 1.0f},
+              {0.0f, 0.0f, 1.0f},
+              {0.0f, 0.0f, 1.0f}}, // 4: +Z
+             {{0.0f, 0.0f, -1.0f},
+              {1.0f, 1.0f, 0.0f},
+              {0.0f, 0.0f, -1.0f}}, // 5: -Z
+         },
+     .indices =
+         std::vector<uint16_t>{
+             0, 2, 4, // +X +Y +Z
+             0, 4, 3, // +X -Y +Z
+             1, 3, 4, // -X -Y +Z
+             1, 4, 2, // -X +Y +Z
+             1, 5, 3, // -X -Y -Z
+             0, 3, 5, // +X -Y -Z
+             1, 2, 5, // -X +Y -Z
+             0, 5, 2, // +X +Y -Z
+         }
 
 };
 VkDescriptorPool g_vk_descriptor_pool;
@@ -109,12 +121,13 @@ bool initialize() {
       g_vk_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
+  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE);
   // Loading test model
-  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
-  for (auto &shape : shapes) {
-    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
-                                      {10, 10, 10});
-  }
+//  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
+//  for (auto &shape : shapes) {
+//    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
+//                                      {10, 10, 10});
+//  }
   SetStarterAnimation();
   return true;
 }
@@ -200,11 +213,11 @@ void ImGui_update() {
         ImGui::EndDisabled();
       }
     }
-    if(ImGui::CollapsingHeader("Material")){
-        auto& material = gameobject->material;
-        ImGui::ColorEdit3("Albedo", material.albedo.data());
-        ImGui::ColorEdit3("Specular strength", material.specular_strength.data());
-        ImGui::InputFloat("Shininess", &material.shininess);
+    if (ImGui::CollapsingHeader("Material")) {
+      auto &material = gameobject->material;
+      ImGui::ColorEdit3("Albedo", material.albedo.data());
+      ImGui::ColorEdit3("Specular strength", material.specular_strength.data());
+      ImGui::InputFloat("Shininess", &material.shininess);
     }
     if (ImGui::CollapsingHeader("Animations. Bezier")) {
       if (ImGui::Button("Add step")) {
@@ -381,6 +394,7 @@ void render(const graphics::internal::FrameData &fd) {
          sizeof(scene_ptr->view_projection_matrix));
   memcpy(&(scene_ptr->lightning), &g_scene_lightning_config,
          sizeof(g_scene_lightning_config));
+  scene_ptr->lightning.view_position = g_camera.position;
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
   vkEndCommandBuffer(fd.command_buffer);
