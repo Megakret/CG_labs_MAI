@@ -1,6 +1,7 @@
 #include "obj_loader.hpp"
 
 #include <random>
+#include<format>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -31,16 +32,22 @@ load_models_obj(std::filesystem::path model_path) {
   for (size_t i = 0; i < obj_shapes.size(); i++) {
     auto &obj_shape = obj_shapes[i];
     graphics::Figure::Shape shape;
+    std::map<uint16_t, uint16_t> obj_to_engine_indices;
     for (const auto &index : obj_shape.mesh.indices) {
+      uint16_t vertex_index = index.vertex_index;
+      auto [it, inserted] = obj_to_engine_indices.insert({vertex_index, shape.vertices.size()});
       graphics::Vertex vertex;
       for (int i = 0; i < 3; i++) {
         vertex.position[i] = attrib.vertices[3 * index.vertex_index + i];
       }
       vertex.color = {random_color(), random_color(), random_color()};
-      shape.vertices.push_back(vertex);
-      shape.indices.push_back(shape.indices.size());
+      if(inserted){
+          shape.vertices.push_back(vertex);
+      }
+      shape.indices.push_back(it->second);
     }
     shapes.push_back(shape);
+    std::cout << std::format("LOADED. Vertices: {}. Indices: {}\n", shape.vertices.size(), shape.indices.size());
   }
   return shapes;
 }
