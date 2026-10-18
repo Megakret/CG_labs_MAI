@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <format>
 #include <imgui.h>
 #include <iostream>
@@ -22,11 +23,13 @@
 #include "graphics/figure.hpp"
 #include "graphics/graphics.hpp"
 #include "graphics/uniform_buffer.hpp"
+#include "loaders/obj_loader.hpp"
 
 namespace application {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 const uint32_t SCENE_SET_ID = 0;
 const uint32_t SCENE_BINDING = 0;
+const std::filesystem::path TEST_OBJ_FILENAME = "models/viking_room.obj";
 graphics::Figure::Shape OCTAHEDRON_SHAPE = {
     .vertices =
         std::vector<graphics::Vertex>{
@@ -76,7 +79,7 @@ void SetStarterAnimation() {
     step2.rotation_end = {0, 180, 0};
   }
 }
-const uint32_t GAMEOBJECT_COUNT = 2;
+const uint32_t GAMEOBJECT_COUNT = 100;
 bool initialize() {
   auto &context = graphics::internal::context;
   graphics::init_pipelines();
@@ -103,8 +106,12 @@ bool initialize() {
       g_vk_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
-  for (uint32_t i = 0; i < GAMEOBJECT_COUNT; i++) {
-    g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE);
+  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0,-5,0}, {0,0,0}, {2,2,2});
+  // Loading test model
+  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
+  for (auto &shape : shapes) {
+    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
+                                      {10, 10, 10});
   }
   SetStarterAnimation();
   return true;

@@ -14,8 +14,8 @@ extern VkDescriptorSetLayout g_figure_descriptor_layout;
 bool load_shared_module(const char *filepath, VkShaderModule *vk_shared_module);
 void init_pipelines();
 struct Vertex {
-  float position[3];
-  float color[3];
+  std::array<float, 3> position;
+  std::array<float, 3> color;
 };
 
 class PipelineBuilder {

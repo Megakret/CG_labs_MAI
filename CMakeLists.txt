@@ -11,6 +11,7 @@ source/app/graphics/graphics.cpp
 source/app/graphics/figure.cpp
 source/app/graphics/camera.cpp
 source/app/gameobject.cpp
+source/app/loaders/obj_loader.cpp
 )
 
 if(LINUX)
@@ -61,16 +62,6 @@ FetchContent_Declare(
  GIT_REPOSITORY	https://github.com/g-truc/glm.git
  GIT_TAG 	0af55ccecd98d4e5a8d1fad7de25ba429d60e863 #refs/tags/1.0.1
 )
-FetchContent_Declare(
-  fastgltf
-  GIT_REPOSITORY https://github.com/spnda/fastgltf.git
-  GIT_TAG        v0.9.1
-)
-
-set(FASTGLTF_ENABLE_TESTS       OFF CACHE BOOL "" FORCE)
-set(FASTGLTF_ENABLE_EXAMPLES    OFF CACHE BOOL "" FORCE)
-set(FASTGLTF_ENABLE_DOCS        OFF CACHE BOOL "" FORCE)
-set(FASTGLTF_ENABLE_CPP_MODULES OFF CACHE BOOL "" FORCE)
 
 
 find_package(Vulkan REQUIRED)
@@ -86,7 +77,6 @@ FetchContent_MakeAvailable(
  VulkanMemoryAllocator
  imgui
  glm
- fastgltf
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -95,10 +85,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
  vk-bootstrap::vk-bootstrap
  GPUOpen::VulkanMemoryAllocator
  glm::glm
- fastgltf::fastgltf
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR}
+${imgui_SOURCE_DIR}/backends third_party)
 target_sources(${PROJECT_NAME} PRIVATE
  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
@@ -108,7 +98,6 @@ target_sources(${PROJECT_NAME} PRIVATE
  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
  ${imgui_SOURCE_DIR}/imgui_demo.cpp
 )
-
 # Compile shaders
 find_program(GLSLC_FOUND glslc)
 if(GLSLC_FOUND)
