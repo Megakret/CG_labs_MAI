@@ -6,7 +6,7 @@ layout(location = 2) in vec3 in_normal;
 
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec3 out_normal;
-layout(location = 2) out vec3 out_world_position;
+layout(location = 2) out vec3 out_to_camera;
 
 layout(std140, set = 0, binding = 0) uniform SceneUniform{
     mat4 projection_view;
@@ -31,5 +31,5 @@ void main()
     gl_Position = scene_uniform.projection_view * world_position;
     out_color= in_color * figure_uniforms.main_color;
     out_normal = mat3(figure_uniforms.model)*in_normal;
-    out_world_position = vec3(world_position);
+    out_to_camera = vec3(scene_uniform.view_position) - vec3(world_position);
 }

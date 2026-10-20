@@ -3,7 +3,7 @@
 
 layout(location = 0) in vec3 in_color;
 layout(location = 1) in vec3 in_normal;
-layout(location = 2) in vec3 in_world_position;
+layout(location = 2) in vec3 in_to_camera;
 //output write
 layout(location = 0) out vec4 outFragColor;
 
@@ -27,10 +27,10 @@ void main()
 {
     vec3 ambient = scene_uniform.ambient * scene_uniform.ambient_strength;
     vec3 N = normalize(in_normal);
-    vec3 V = normalize(-scene_uniform.sunlight_direction);
-    vec3 H = reflect(scene_uniform.sunlight_direction, N);
-    float diff = max(dot(N, V), 0);
+    vec3 to_light = normalize(-scene_uniform.sunlight_direction);
+    vec3 H = normalize(to_light+normalize(in_to_camera));
+    float diff = max(dot(N, to_light), 0);
     vec3 diffuse = diff * figure_uniforms.albedo;
-    vec3 specular = figure_uniforms.specular_strength * pow(max(dot(N,H), 0), min(figure_uniforms.shininess, 0.1f));
+    vec3 specular = figure_uniforms.specular_strength * pow(max(dot(N,H), 0), max(figure_uniforms.shininess, 0.1f));
     outFragColor = vec4(in_color * (ambient + diffuse + specular), 1.0f);
 }
