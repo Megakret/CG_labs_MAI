@@ -12,7 +12,7 @@ layout(std140, set = 0, binding = 0) uniform SceneUniform{
     vec3 ambient;
     float ambient_strength;
     vec3 sunlight_direction;
-    float a;
+    float sunlight_intensity;
 } scene_uniform;
 layout(std140, set = 1, binding = 0) uniform FigureUniform{
     mat4 model;
@@ -32,5 +32,5 @@ void main()
     float diff = max(dot(N, to_light), 0);
     vec3 diffuse = diff * figure_uniforms.albedo;
     vec3 specular = figure_uniforms.specular_strength * pow(max(dot(N,H), 0), max(figure_uniforms.shininess, 0.1f));
-    outFragColor = vec4(in_color * (ambient + diffuse + specular), 1.0f);
+    outFragColor = vec4(in_color * (ambient + scene_uniform.sunlight_intensity*(diffuse + specular)), 1.0f);
 }

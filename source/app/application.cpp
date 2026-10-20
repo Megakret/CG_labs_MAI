@@ -194,6 +194,7 @@ void ImGui_update() {
                       &g_scene_lightning_config.ambient_strength);
     ImGui::InputFloat3("Sunlight direction",
                        g_scene_lightning_config.sunlight_direction.data());
+    ImGui::InputFloat("Sunlight intensity", &g_scene_lightning_config.sunlight_intensity);
   }
   ImGui::End();
   auto &gameobjects = g_gameobject_manager->gameobjects;
