@@ -75,7 +75,7 @@ struct SceneBuffer {
   float view_projection_matrix[4][4];
   graphics::SceneLightning lightning;
 };
-const size_t POINT_LIGHT_COUNT = 1;
+const size_t POINT_LIGHT_COUNT = 2;
 const size_t POINT_LIGHT_BINDING = 1;
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
 std::unique_ptr<graphics::StorageBuffer<graphics::PointLight>>
@@ -103,6 +103,7 @@ void SetStarterAnimation() {
   }
 }
 const uint32_t GAMEOBJECT_COUNT = 100;
+void init_scene();
 bool initialize() {
   graphics::init_pipelines();
   const std::vector<VkDescriptorPoolSize> descriptor_pool_sizes{
@@ -132,7 +133,7 @@ bool initialize() {
       *g_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
-  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0,-5,0});
+  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0, -5, 0});
   // Loading test model
   auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
   for (auto &shape : shapes) {
@@ -140,9 +141,41 @@ bool initialize() {
                                       {10, 10, 10});
   }
   SetStarterAnimation();
+  init_scene();
   return true;
 }
+void init_scene() {
+  auto &light1 = g_point_lights[0];
+  light1.intensity = 0.7f;
+  light1.light_color = {250.0 / 255.0, 125.0 / 255.0, 0.0};
+  light1.linear_term = 0.22;
+  light1.quadratic_term = 0.2;
+  light1.position = {-2.45, -6.56, 6.23};
 
+  auto &light2 = g_point_lights[1];
+  light2.intensity = 0.7f;
+  light2.light_color = {250.0 / 255.0, 125.0 / 255.0, 0.0};
+  light2.linear_term = 0.22;
+  light2.quadratic_term = 0.2;
+  light2.position = {-2.59, -6.23, -5.649};
+
+  g_scene_lightning_config.ambient = {1.0 / 255.0, 5.0 / 255.0, 30.0 / 255.0};
+  g_scene_lightning_config.ambient_strength = 0.05;
+
+  auto &gameobjects = g_gameobject_manager->gameobjects;
+  gameobjects[0]->position = {0, -5, 0};
+  gameobjects[0]->material.albedo = {1, 203.0 / 255.0, 0};
+  gameobjects[0]->material.shininess = 50.0f;
+  gameobjects[0]->material.specular_strength = {1, 1, 1};
+  gameobjects[1]->material.albedo = {216.0 / 255.0, 154.0 / 255.0, 3.0 / 255.0};
+  gameobjects[1]->material.specular_strength = {179.0 / 255.0, 179.0 / 255.0,
+                                                179.0 / 255.0};
+  gameobjects[1]->material.shininess = 3.0;
+
+  g_scene_lightning_config.sunlight_color = {23.0/255.0, 224.0/255.0, 130.0/255.0};
+  g_scene_lightning_config.sunlight_direction = {-1,1,0};
+  g_scene_lightning_config.sunlight_intensity = 0.03;
+}
 void shutdown() {
   auto &context = graphics::internal::context;
   vkQueueWaitIdle(context.graphics_queue);
@@ -214,11 +247,13 @@ void ImGui_update() {
       for (size_t i = 0; i < g_point_lights.size(); ++i) {
         graphics::PointLight &light = g_point_lights[i];
         if (ImGui::CollapsingHeader(std::format("Point light {}", i).c_str())) {
+          ImGui::PushID(i);
           ImGui::ColorEdit3("Light color", light.light_color.data());
           ImGui::InputFloat("Intensity", &light.intensity);
           ImGui::InputFloat3("Position", light.position.data());
           ImGui::InputFloat("Linear term", &light.linear_term);
           ImGui::InputFloat("Quadratic term", &light.quadratic_term);
+          ImGui::PopID();
         }
       }
     }
@@ -377,7 +412,7 @@ void render(const graphics::internal::FrameData &fd) {
   cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   cmd_begin_info.pNext = nullptr;
   VkClearValue clearValues[]{
-      {.color = {{0.0f, 0.0f, 0.1f, 1.0f}}},
+      {.color = {{0.0f, 0.0f, 0.0f, 1.0f}}},
       {.depthStencil = {1.0f, 0}},
   };
   VkRenderPassBeginInfo rp_info{
