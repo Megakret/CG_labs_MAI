@@ -5,14 +5,14 @@
 #include <vulkan/vulkan_core.h>
 
 #include "animation.hpp"
+#include "graphics/descriptors.hpp"
 #include "graphics/figure.hpp"
 #include "graphics/material.hpp"
 
 namespace application {
 class Gameobject {
 public:
-  Gameobject(const graphics::Figure::Shape &shape, VkDescriptorPool pool,
-             VkDescriptorSetLayout descriptor_layout);
+  Gameobject(const graphics::Figure::Shape &shape, graphics::DescriptorSet& descriptor_set);
   graphics::FigureState GetFigureState();
   std::array<float, 3> position = {0,0,0};
   std::array<float, 3> rotation = {0,0,0};
@@ -26,7 +26,7 @@ public:
 using GameobjectPtr = std::shared_ptr<Gameobject>;
 class GameobjectManager {
 public:
-  GameobjectManager(VkDescriptorPool pool, VkDescriptorSetLayout figure_layout)
+  GameobjectManager(graphics::DescriptorPool& pool, VkDescriptorSetLayout figure_layout)
       : pool(pool), figure_layout(figure_layout) {}
   std::vector<GameobjectPtr> gameobjects;
   GameobjectPtr Instantiate(const graphics::Figure::Shape &shape);
@@ -43,7 +43,7 @@ public:
                             const std::array<float, 3> &color);
 
 private:
-  VkDescriptorPool pool;
+  graphics::DescriptorPool& pool;
   VkDescriptorSetLayout figure_layout;
 };
 } // namespace application

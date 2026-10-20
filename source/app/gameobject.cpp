@@ -1,12 +1,13 @@
 #include "gameobject.hpp"
+#include "graphics/descriptors.hpp"
 #include "graphics/figure.hpp"
+#include "graphics/graphics.hpp"
 #include <memory>
 
 namespace application {
 Gameobject::Gameobject(const graphics::Figure::Shape &shape,
-                       VkDescriptorPool pool,
-                       VkDescriptorSetLayout descriptor_layout)
-    : figure(shape, pool, descriptor_layout) {}
+                       graphics::DescriptorSet &descriptor_set)
+    : figure(shape, descriptor_set) {}
 graphics::FigureState Gameobject::GetFigureState() {
   return graphics::FigureState{.position = position,
                                .rotation = rotation,
@@ -15,8 +16,10 @@ graphics::FigureState Gameobject::GetFigureState() {
 }
 GameobjectPtr
 GameobjectManager::Instantiate(const graphics::Figure::Shape &shape) {
+  graphics::DescriptorSet descriptor_set =
+      pool.AllocateSet(graphics::g_figure_descriptor_layout);
   std::shared_ptr<Gameobject> ptr =
-      std::make_shared<Gameobject>(shape, pool, figure_layout);
+      std::make_shared<Gameobject>(shape, descriptor_set);
   gameobjects.push_back(ptr);
   return ptr;
 }

@@ -21,7 +21,8 @@ VkPipeline triangle_pipeline;
 
 VkDescriptorSetLayout g_scene_descriptor_layout;
 VkDescriptorSetLayout g_figure_descriptor_layout;
-
+const size_t STORAGE_BUFFER_COUNT = 2;
+const size_t SCENE_DESCRIPTOR_COUNT = STORAGE_BUFFER_COUNT + 1;
 bool load_shader_module(const char *filepath,
                         VkShaderModule *out_shader_module) {
   std::ifstream file(filepath, std::ios::ate | std::ios::binary);
@@ -64,8 +65,30 @@ void init_pipelines() {
   } else {
     std::cout << "Triangle vertex shader successfully loaded" << std::endl;
   }
+  const std::array<VkDescriptorSetLayoutBinding, SCENE_DESCRIPTOR_COUNT>
+  scene_layout_bindings{
+          VkDescriptorSetLayoutBinding{
+              .binding = 0,
+              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags =
+                  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+          },
+          VkDescriptorSetLayoutBinding{
+              .binding = 1,
+              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+          },
+          VkDescriptorSetLayoutBinding{
+              .binding = 2,
+              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+          },
+      };
   const std::array<VkDescriptorSetLayoutBinding, 1>
-      descriptor_set_layout_bindings{
+  figure_layout_bindings{
           VkDescriptorSetLayoutBinding{
               .binding = 0,
               .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -75,8 +98,8 @@ void init_pipelines() {
           },
       };
   std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts{
-      create_descriptor_set_layout(std::span(descriptor_set_layout_bindings)),
-      create_descriptor_set_layout(std::span(descriptor_set_layout_bindings)),
+      create_descriptor_set_layout(std::span(scene_layout_bindings)),
+      create_descriptor_set_layout(std::span(figure_layout_bindings)),
   };
   VkPipelineLayoutCreateInfo pipeline_layout_info =
       pipeline_layout_create_info(std::span(descriptor_set_layouts));

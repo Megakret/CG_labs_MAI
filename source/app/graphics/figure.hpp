@@ -1,5 +1,6 @@
 #pragma once
 
+#include "descriptors.hpp"
 #include "glm/fwd.hpp"
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -31,8 +32,7 @@ public:
   };
 
 public:
-  Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
-         VkDescriptorSetLayout descriptor_layout);
+  Figure(const Shape &shape, graphics::DescriptorSet& descriptor_set);
   Figure(const Figure &) = delete;
   Figure(Figure &&) noexcept;
   Figure &operator=(const Figure &) = delete;
@@ -55,6 +55,7 @@ private:
   VmaAllocation vk_index_buffer_allocation;
   uint16_t *vk_index_buffer_memory;
 
+  graphics::DescriptorSet descriptor_set;
   UniformBuffer<UniformData> uniform_buffer;
   size_t index_count = 0;
 };

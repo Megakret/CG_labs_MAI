@@ -13,4 +13,9 @@ namespace graphics{
       std::array<float, 3> sunlight_color = {1,1,1};
       float a;
     };
+    struct PointLight{
+        std::array<float, 3> light_color;
+        float intensity;
+        std::array<float, 3> position;
+    };
 }

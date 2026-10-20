@@ -10,6 +10,8 @@ extern VkPipelineLayout triangle_pipeline_layout;
 extern VkPipeline triangle_pipeline;
 extern VkDescriptorSetLayout g_scene_descriptor_layout;
 extern VkDescriptorSetLayout g_figure_descriptor_layout;
+extern const size_t STORAGE_BUFFER_COUNT;
+extern const size_t SCENE_DESCRIPTOR_COUNT;
 
 bool load_shared_module(const char *filepath, VkShaderModule *vk_shared_module);
 void init_pipelines();

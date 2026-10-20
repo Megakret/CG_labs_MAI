@@ -12,6 +12,7 @@ source/app/graphics/figure.cpp
 source/app/graphics/camera.cpp
 source/app/gameobject.cpp
 source/app/loaders/obj_loader.cpp
+source/app/graphics/descriptors.cpp
 )
 
 if(LINUX)

@@ -20,16 +20,18 @@
 #include "animation.hpp"
 #include "gameobject.hpp"
 #include "graphics/camera.hpp"
+#include "graphics/descriptors.hpp"
 #include "graphics/figure.hpp"
 #include "graphics/graphics.hpp"
 #include "graphics/lightning.hpp"
+#include "graphics/storage_buffer.hpp"
 #include "graphics/uniform_buffer.hpp"
 #include "loaders/obj_loader.hpp"
 
 namespace application {
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 const uint32_t SCENE_SET_ID = 0;
-const uint32_t SCENE_BINDING = 0;
+const uint32_t SCENE_UNIFORM_BINDING = 0;
 const std::filesystem::path TEST_OBJ_FILENAME = "models/viking_room.obj";
 graphics::Figure::Shape OCTAHEDRON_SHAPE =
     {.vertices =
@@ -66,13 +68,19 @@ graphics::Figure::Shape OCTAHEDRON_SHAPE =
          }
 
 };
-VkDescriptorPool g_vk_descriptor_pool;
+std::unique_ptr<graphics::DescriptorPool> g_descriptor_pool;
+std::unique_ptr<graphics::DescriptorSet> g_scene_descriptor_set;
 std::unique_ptr<GameobjectManager> g_gameobject_manager;
 struct SceneBuffer {
   float view_projection_matrix[4][4];
   graphics::SceneLightning lightning;
 };
+const size_t POINT_LIGHT_COUNT = 1;
+//const size_t POINT_LIGHT_BINDING = 1;
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
+//std::unique_ptr<graphics::StorageBuffer<graphics::PointLight>>
+//    g_point_lights_buffer;
+//std::array<graphics::PointLight, POINT_LIGHT_COUNT> g_point_lights;
 graphics::SceneLightning g_scene_lightning_config;
 graphics::Camera g_camera;
 void SetStarterAnimation() {
@@ -96,38 +104,40 @@ void SetStarterAnimation() {
 }
 const uint32_t GAMEOBJECT_COUNT = 100;
 bool initialize() {
-  auto &context = graphics::internal::context;
   graphics::init_pipelines();
-  const VkDescriptorPoolSize descriptor_pool_sizes[]{
+  const std::vector<VkDescriptorPoolSize> descriptor_pool_sizes{
       VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                           .descriptorCount = GAMEOBJECT_COUNT + 1}};
-  const VkDescriptorPoolCreateInfo descriptor_pool_info{
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .maxSets = GAMEOBJECT_COUNT + 1,
-      .poolSizeCount =
-          sizeof(descriptor_pool_sizes) / sizeof(descriptor_pool_sizes[0]),
-      .pPoolSizes = descriptor_pool_sizes};
-  if (vkCreateDescriptorPool(context.device, &descriptor_pool_info, nullptr,
-                             &g_vk_descriptor_pool) != VK_SUCCESS) {
-    std::cerr << "Failed to create a descriptor pool\n";
-    return false;
-  }
+                           .descriptorCount = GAMEOBJECT_COUNT + 1},
+      VkDescriptorPoolSize{
+          .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          .descriptorCount =
+              static_cast<uint32_t>(graphics::STORAGE_BUFFER_COUNT),
+      }};
+  g_descriptor_pool = std::make_unique<graphics::DescriptorPool>(
+      descriptor_pool_sizes, GAMEOBJECT_COUNT + graphics::STORAGE_BUFFER_COUNT + 1);
+  graphics::DescriptorSet scene_set =
+      g_descriptor_pool->AllocateSet(graphics::g_scene_descriptor_layout);
   // Scene
   g_scene_uniform_buffer =
       std::make_unique<graphics::UniformBuffer<SceneBuffer>>(
-          g_vk_descriptor_pool, graphics::g_scene_descriptor_layout,
-          SCENE_BINDING);
+          scene_set, SCENE_UNIFORM_BINDING);
+//  g_point_lights_buffer =
+//      std::make_unique<graphics::StorageBuffer<graphics::PointLight>>(
+//          scene_set, POINT_LIGHT_COUNT, POINT_LIGHT_BINDING);
+  scene_set.Update();
+  g_scene_descriptor_set =
+      std::make_unique<graphics::DescriptorSet>(std::move(scene_set));
   g_gameobject_manager = std::make_unique<GameobjectManager>(
-      g_vk_descriptor_pool, graphics::g_figure_descriptor_layout);
+      *g_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
   g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE);
   // Loading test model
-//  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
-//  for (auto &shape : shapes) {
-//    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
-//                                      {10, 10, 10});
-//  }
+  //  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
+  //  for (auto &shape : shapes) {
+  //    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
+  //                                      {10, 10, 10});
+  //  }
   SetStarterAnimation();
   return true;
 }
@@ -140,6 +150,7 @@ void shutdown() {
                           nullptr);
   g_gameobject_manager = nullptr;
   g_scene_uniform_buffer = nullptr;
+  //g_point_lights_buffer = nullptr;
 }
 double prev_time = 0;
 const int PERSPECTIVE_MATRIX_ID = 0;
@@ -192,10 +203,12 @@ void ImGui_update() {
     ImGui::ColorEdit3("Ambient color", g_scene_lightning_config.ambient.data());
     ImGui::InputFloat("Ambient strength",
                       &g_scene_lightning_config.ambient_strength);
-    ImGui::ColorEdit3("Sunlight color", g_scene_lightning_config.sunlight_color.data());
+    ImGui::ColorEdit3("Sunlight color",
+                      g_scene_lightning_config.sunlight_color.data());
     ImGui::InputFloat3("Sunlight direction",
                        g_scene_lightning_config.sunlight_direction.data());
-    ImGui::InputFloat("Sunlight intensity", &g_scene_lightning_config.sunlight_intensity);
+    ImGui::InputFloat("Sunlight intensity",
+                      &g_scene_lightning_config.sunlight_intensity);
   }
   ImGui::End();
   auto &gameobjects = g_gameobject_manager->gameobjects;
@@ -377,16 +390,8 @@ void render(const graphics::internal::FrameData &fd) {
   vkCmdSetScissor(fd.command_buffer, 0, 1, &scissor);
   vkCmdBindPipeline(fd.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     graphics::triangle_pipeline);
-  g_scene_uniform_buffer->Bind(
+  g_scene_descriptor_set->Bind(
       fd.command_buffer, graphics::triangle_pipeline_layout, SCENE_SET_ID);
-  for (GameobjectPtr gameobject : g_gameobject_manager->gameobjects) {
-    auto &figure = gameobject->figure;
-    figure.Bind(fd.command_buffer, graphics::triangle_pipeline_layout);
-    figure.Draw(fd.command_buffer);
-    figure.UpdateFigure(gameobject->position, gameobject->rotation,
-                        gameobject->scale, gameobject->color);
-    figure.UpdateMaterial(gameobject->material);
-  }
   glm::mat4 projection_matrix = GetProjectionMatrix();
   glm::mat4 view_matrix = g_camera.GetViewMatrix();
   glm::mat4 projection_view_matrix = projection_matrix * view_matrix;
@@ -397,6 +402,19 @@ void render(const graphics::internal::FrameData &fd) {
   memcpy(&(scene_ptr->lightning), &g_scene_lightning_config,
          sizeof(g_scene_lightning_config));
   scene_ptr->lightning.view_position = g_camera.position;
+  // Storage buffers
+  // for (size_t i = 0; i < POINT_LIGHT_COUNT; i++) {
+  //   auto point_lights_buf = g_point_lights_buffer->GetSpan();
+  //   point_lights_buf[i] = g_point_lights[i];
+  // }
+  for (GameobjectPtr gameobject : g_gameobject_manager->gameobjects) {
+    auto &figure = gameobject->figure;
+    figure.Bind(fd.command_buffer, graphics::triangle_pipeline_layout);
+    figure.UpdateFigure(gameobject->position, gameobject->rotation,
+                        gameobject->scale, gameobject->color);
+    figure.UpdateMaterial(gameobject->material);
+    figure.Draw(fd.command_buffer);
+  }
   // finalize the render pass
   vkCmdEndRenderPass(fd.command_buffer);
   vkEndCommandBuffer(fd.command_buffer);

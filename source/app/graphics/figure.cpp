@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string.h>
 
+#include "descriptors.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -13,9 +14,9 @@
 #include "../../graphics_internal.hpp"
 #include "material.hpp"
 namespace graphics {
-Figure::Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
-               VkDescriptorSetLayout descriptor_layout)
-    : uniform_buffer(descriptor_pool, descriptor_layout, FIGURE_BINDING),
+Figure::Figure(const Shape &shape, graphics::DescriptorSet &descriptor_set)
+    : descriptor_set(std::move(descriptor_set)),
+      uniform_buffer(this->descriptor_set, FIGURE_BINDING),
       index_count(shape.indices.size()) {
   auto &context = graphics::internal::context;
   // Vertex buffer
@@ -63,6 +64,7 @@ Figure::Figure(const Shape &shape, VkDescriptorPool descriptor_pool,
          shape.vertices.size() * sizeof(graphics::Vertex));
   memcpy(vk_index_buffer_memory, shape.indices.data(),
          shape.indices.size() * sizeof(uint16_t));
+  this->descriptor_set.Update();
 }
 Figure::~Figure() {
   auto &context = graphics::internal::context;
@@ -85,7 +87,7 @@ void Figure::Bind(VkCommandBuffer command_buffer,
   vkCmdBindVertexBuffers(command_buffer, 0, 1, &vk_vertex_buffer, &offset);
   vkCmdBindIndexBuffer(command_buffer, vk_index_buffer, 0,
                        VK_INDEX_TYPE_UINT16);
-  uniform_buffer.Bind(command_buffer, pipeline_layout, FIGURE_SET_ID);
+  descriptor_set.Bind(command_buffer, pipeline_layout, FIGURE_SET_ID);
 }
 void Figure::Draw(VkCommandBuffer command_buffer) {
   vkCmdDrawIndexed(command_buffer, index_count, 1, 0, 0, 0);
@@ -111,7 +113,8 @@ void Figure::UpdateFigure(const std::array<float, 3> &position,
   memcpy(uniform_buffer.GetPtr()->color, color.data(), sizeof(color));
 }
 Figure::Figure(Figure &&other) noexcept
-    : uniform_buffer(std::move(other.uniform_buffer)) {
+    : descriptor_set(std::move(other.descriptor_set)),
+      uniform_buffer(std::move(other.uniform_buffer)) {
   vk_vertex_buffer = other.vk_vertex_buffer;
   vk_vertex_buffer_allocation = other.vk_vertex_buffer_allocation;
   vk_vertex_buffer_memory = other.vk_vertex_buffer_memory;
@@ -128,9 +131,9 @@ Figure::Figure(Figure &&other) noexcept
   other.vk_index_buffer_memory = nullptr;
   other.index_count = 0;
 }
-void Figure::UpdateMaterial(const graphics::Material &material){
-    auto ptr = uniform_buffer.GetPtr();
-    memcpy(&(ptr->material), &material, sizeof(ptr->material));
+void Figure::UpdateMaterial(const graphics::Material &material) {
+  auto ptr = uniform_buffer.GetPtr();
+  memcpy(&(ptr->material), &material, sizeof(ptr->material));
 }
 Figure &Figure::operator=(Figure &&other) noexcept {
   if (this != &other) {

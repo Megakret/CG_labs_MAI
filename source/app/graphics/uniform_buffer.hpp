@@ -7,6 +7,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "../../graphics_internal.hpp"
+#include "descriptors.hpp"
 
 namespace graphics {
 template <typename BufferT> class UniformBuffer {
@@ -14,11 +15,9 @@ private:
   VkBuffer vk_uniform_buffer;
   VmaAllocation vk_uniform_buffer_allocation;
   BufferT *vk_uniform_buffer_memory;
-  VkDescriptorSet vk_uniform_descriptor_set;
 
 public:
-  UniformBuffer(VkDescriptorPool pool, VkDescriptorSetLayout layout,
-                uint32_t binding);
+  UniformBuffer(DescriptorSet &descriptor_set, uint32_t binding);
   UniformBuffer(const UniformBuffer<BufferT> &) = delete;
   UniformBuffer<BufferT> &operator=(const UniformBuffer<BufferT> &) = delete;
   UniformBuffer(UniformBuffer<BufferT> &&) noexcept;
@@ -26,12 +25,9 @@ public:
   ~UniformBuffer();
 
   BufferT *GetPtr();
-  void Bind(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout,
-            uint32_t set);
 };
 template <typename BufferT>
-UniformBuffer<BufferT>::UniformBuffer(VkDescriptorPool pool,
-                                      VkDescriptorSetLayout layout,
+UniformBuffer<BufferT>::UniformBuffer(DescriptorSet &descriptor_set,
                                       uint32_t binding) {
   auto &context = graphics::internal::context;
   const VkBufferCreateInfo uniform_buffer_info{
@@ -54,29 +50,10 @@ UniformBuffer<BufferT>::UniformBuffer(VkDescriptorPool pool,
     std::cerr << "Failed to map vertex buffer memory\n";
   }
   new (vk_uniform_buffer_memory) BufferT();
-  // Creating a descriptor set
-  const VkDescriptorSetAllocateInfo descriptor_set_allocate_info{
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-      .descriptorPool = pool,
-      .descriptorSetCount = 1,
-      .pSetLayouts = &layout};
-  if (vkAllocateDescriptorSets(context.device, &descriptor_set_allocate_info,
-                               &vk_uniform_descriptor_set) != VK_SUCCESS) {
-    std::cerr << "Failed to allocate descriptor set\n";
-  }
   const VkDescriptorBufferInfo descriptor_buffer_info{
       .buffer = vk_uniform_buffer, .offset = 0, .range = sizeof(BufferT)};
-  std::array<VkWriteDescriptorSet, 1> descriptor_writes{VkWriteDescriptorSet{
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = vk_uniform_descriptor_set,
-      .dstBinding = binding,
-      .descriptorCount = 1,
-      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-      .pBufferInfo = &descriptor_buffer_info,
-  }};
-  vkUpdateDescriptorSets(context.device,
-                         static_cast<uint32_t>(descriptor_writes.size()),
-                         descriptor_writes.data(), 0, nullptr);
+  descriptor_set.DeferUpdate(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                             descriptor_buffer_info);
 }
 
 template <typename T> T *UniformBuffer<T>::GetPtr() {
@@ -88,11 +65,9 @@ UniformBuffer<BufferT>::UniformBuffer(UniformBuffer<BufferT> &&other) noexcept {
   vk_uniform_buffer = other.vk_uniform_buffer;
   vk_uniform_buffer_allocation = other.vk_uniform_buffer_allocation;
   vk_uniform_buffer_memory = other.vk_uniform_buffer_memory;
-  vk_uniform_descriptor_set = other.vk_uniform_descriptor_set;
   other.vk_uniform_buffer = VK_NULL_HANDLE;
   other.vk_uniform_buffer_allocation = VK_NULL_HANDLE;
   other.vk_uniform_buffer_memory = nullptr;
-  other.vk_uniform_descriptor_set = VK_NULL_HANDLE;
 }
 template <typename BufferT> UniformBuffer<BufferT>::~UniformBuffer() {
   auto &context = graphics::internal::context;
@@ -110,13 +85,5 @@ UniformBuffer<BufferT>::operator=(UniformBuffer<BufferT> &&other) noexcept {
     new (this) UniformBuffer<BufferT>(std::move(other));
   }
   return *this;
-}
-template <typename BufferT>
-void UniformBuffer<BufferT>::Bind(VkCommandBuffer command_buffer,
-                                  VkPipelineLayout pipeline_layout,
-                                  uint32_t set) {
-  vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          pipeline_layout, set, 1, &vk_uniform_descriptor_set,
-                          0, nullptr);
 }
 } // namespace graphics
