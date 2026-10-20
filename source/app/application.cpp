@@ -76,11 +76,11 @@ struct SceneBuffer {
   graphics::SceneLightning lightning;
 };
 const size_t POINT_LIGHT_COUNT = 1;
-//const size_t POINT_LIGHT_BINDING = 1;
+const size_t POINT_LIGHT_BINDING = 1;
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
-//std::unique_ptr<graphics::StorageBuffer<graphics::PointLight>>
-//    g_point_lights_buffer;
-//std::array<graphics::PointLight, POINT_LIGHT_COUNT> g_point_lights;
+std::unique_ptr<graphics::StorageBuffer<graphics::PointLight>>
+    g_point_lights_buffer;
+std::array<graphics::PointLight, POINT_LIGHT_COUNT> g_point_lights;
 graphics::SceneLightning g_scene_lightning_config;
 graphics::Camera g_camera;
 void SetStarterAnimation() {
@@ -114,16 +114,17 @@ bool initialize() {
               static_cast<uint32_t>(graphics::STORAGE_BUFFER_COUNT),
       }};
   g_descriptor_pool = std::make_unique<graphics::DescriptorPool>(
-      descriptor_pool_sizes, GAMEOBJECT_COUNT + graphics::STORAGE_BUFFER_COUNT + 1);
+      descriptor_pool_sizes,
+      GAMEOBJECT_COUNT + graphics::STORAGE_BUFFER_COUNT + 1);
   graphics::DescriptorSet scene_set =
       g_descriptor_pool->AllocateSet(graphics::g_scene_descriptor_layout);
   // Scene
   g_scene_uniform_buffer =
       std::make_unique<graphics::UniformBuffer<SceneBuffer>>(
           scene_set, SCENE_UNIFORM_BINDING);
-//  g_point_lights_buffer =
-//      std::make_unique<graphics::StorageBuffer<graphics::PointLight>>(
-//          scene_set, POINT_LIGHT_COUNT, POINT_LIGHT_BINDING);
+  g_point_lights_buffer =
+      std::make_unique<graphics::StorageBuffer<graphics::PointLight>>(
+          scene_set, POINT_LIGHT_COUNT, POINT_LIGHT_BINDING);
   scene_set.Update();
   g_scene_descriptor_set =
       std::make_unique<graphics::DescriptorSet>(std::move(scene_set));
@@ -131,13 +132,13 @@ bool initialize() {
       *g_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
-  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE);
+  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0,-5,0});
   // Loading test model
-  //  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
-  //  for (auto &shape : shapes) {
-  //    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
-  //                                      {10, 10, 10});
-  //  }
+  auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
+  for (auto &shape : shapes) {
+    g_gameobject_manager->Instantiate(shape, {0, 0, 0}, {90, 0, 0},
+                                      {10, 10, 10});
+  }
   SetStarterAnimation();
   return true;
 }
@@ -150,7 +151,7 @@ void shutdown() {
                           nullptr);
   g_gameobject_manager = nullptr;
   g_scene_uniform_buffer = nullptr;
-  //g_point_lights_buffer = nullptr;
+  g_point_lights_buffer = nullptr;
 }
 double prev_time = 0;
 const int PERSPECTIVE_MATRIX_ID = 0;
@@ -209,6 +210,18 @@ void ImGui_update() {
                        g_scene_lightning_config.sunlight_direction.data());
     ImGui::InputFloat("Sunlight intensity",
                       &g_scene_lightning_config.sunlight_intensity);
+    if (ImGui::CollapsingHeader("Point lights")) {
+      for (size_t i = 0; i < g_point_lights.size(); ++i) {
+        graphics::PointLight &light = g_point_lights[i];
+        if (ImGui::CollapsingHeader(std::format("Point light {}", i).c_str())) {
+          ImGui::ColorEdit3("Light color", light.light_color.data());
+          ImGui::InputFloat("Intensity", &light.intensity);
+          ImGui::InputFloat3("Position", light.position.data());
+          ImGui::InputFloat("Linear term", &light.linear_term);
+          ImGui::InputFloat("Quadratic term", &light.quadratic_term);
+        }
+      }
+    }
   }
   ImGui::End();
   auto &gameobjects = g_gameobject_manager->gameobjects;
@@ -403,10 +416,10 @@ void render(const graphics::internal::FrameData &fd) {
          sizeof(g_scene_lightning_config));
   scene_ptr->lightning.view_position = g_camera.position;
   // Storage buffers
-  // for (size_t i = 0; i < POINT_LIGHT_COUNT; i++) {
-  //   auto point_lights_buf = g_point_lights_buffer->GetSpan();
-  //   point_lights_buf[i] = g_point_lights[i];
-  // }
+  for (size_t i = 0; i < POINT_LIGHT_COUNT; i++) {
+    auto point_lights_buf = g_point_lights_buffer->GetSpan();
+    point_lights_buf[i] = g_point_lights[i];
+  }
   for (GameobjectPtr gameobject : g_gameobject_manager->gameobjects) {
     auto &figure = gameobject->figure;
     figure.Bind(fd.command_buffer, graphics::triangle_pipeline_layout);

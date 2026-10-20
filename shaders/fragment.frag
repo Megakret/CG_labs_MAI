@@ -3,17 +3,17 @@
 
 layout(location = 0) in vec3 in_color;
 layout(location = 1) in vec3 in_normal;
-layout(location = 2) in vec3 in_to_camera;
+layout(location = 2) in vec3 in_world_position;
 //output write
 layout(location = 0) out vec4 outFragColor;
 
-struct Material{
+struct Material {
     vec3 albedo;
     float b;
     vec3 specular_strength;
     float shininess;
 };
-struct SceneLightning{
+struct SceneLightning {
     vec3 view_position;
     float a;
     vec3 ambient;
@@ -23,25 +23,54 @@ struct SceneLightning{
     vec3 sunlight_color;
     float b;
 };
-layout(std140, set = 0, binding = 0) uniform SceneUniform{
+layout(std140, set = 0, binding = 0) uniform SceneUniform {
     mat4 projection_view;
     SceneLightning lightning;
 } scene;
-layout(std140, set = 1, binding = 0) uniform FigureUniform{
+struct PointLight {
+    vec3 light_color;
+    float intensity;
+    vec3 position;
+    float linear_term;
+    float quadratic_term;
+};
+layout(std430, set = 0, binding = 1) readonly buffer PointLightBuffer {
+    PointLight[] lights;
+} point_lights;
+layout(std140, set = 1, binding = 0) uniform FigureUniform {
     mat4 model;
     vec3 main_color;
     float a;
     Material material;
 } figure_uniforms;
+vec3 CalculateLight(vec3 N, vec3 to_camera, vec3 to_light) {
+    vec3 H = normalize(to_light + to_camera);
+    float diff = max(dot(N, to_light), 0);
+    vec3 diffuse = (diff * figure_uniforms.material.albedo);
+    vec3 specular = figure_uniforms.material.specular_strength * pow(max(dot(N, H), 0), max(figure_uniforms.material.shininess, 0.1f));
+    return diffuse + specular;
+}
+vec3 CalculateSunlight(vec3 N, vec3 to_camera) {
+    vec3 to_light = normalize(-scene.lightning.sunlight_direction);
+    return scene.lightning.sunlight_intensity * scene.lightning.sunlight_color * CalculateLight(N, to_camera, to_light);
+}
+vec3 CalculatePointLight(vec3 N, vec3 to_camera, PointLight light) {
+    vec3 to_light = normalize(light.position - in_world_position);
+    float distance = max(length(light.position - in_world_position), 1e-4);
+    vec3 phong = CalculateLight(N, to_camera, to_light);
+    float attenuation = 1 / (1 + light.linear_term * distance + light.quadratic_term * distance * distance);
+    return attenuation * light.intensity * light.light_color * phong;
+}
 void main()
 {
     vec3 ambient = scene.lightning.ambient * scene.lightning.ambient_strength;
+    vec3 output_light = ambient;
     vec3 N = normalize(in_normal);
-    vec3 to_light = normalize(-scene.lightning.sunlight_direction);
-    vec3 H = normalize(to_light+normalize(in_to_camera));
-    float diff = max(dot(N, to_light), 0);
-    vec3 sunlight_color = scene.lightning.sunlight_color * scene.lightning.sunlight_intensity;
-    vec3 diffuse = sunlight_color * (diff * figure_uniforms.material.albedo);
-    vec3 specular = sunlight_color * figure_uniforms.material.specular_strength * pow(max(dot(N,H), 0), max(figure_uniforms.material.shininess, 0.1f));
-    outFragColor = vec4(in_color * (ambient + diffuse + specular), 1.0f);
+    vec3 to_camera = normalize(scene.lightning.view_position - in_world_position);
+    output_light += CalculateSunlight(N, to_camera);
+    for (uint i = 0u; i < point_lights.lights.length(); ++i) {
+        PointLight light = point_lights.lights[i];
+        output_light += CalculatePointLight(N, to_camera, light);
+    }
+    outFragColor = vec4(in_color * output_light, 1.0f);
 }

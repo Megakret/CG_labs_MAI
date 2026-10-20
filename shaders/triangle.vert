@@ -6,7 +6,7 @@ layout(location = 2) in vec3 in_normal;
 
 layout(location = 0) out vec3 out_color;
 layout(location = 1) out vec3 out_normal;
-layout(location = 2) out vec3 out_to_camera;
+layout(location = 2) out vec3 out_world_position;
 struct Material{
     vec3 albedo;
     float b;
@@ -39,5 +39,5 @@ void main()
     gl_Position = scene.projection_view * world_position;
     out_color= in_color * figure_uniforms.main_color;
     out_normal = vec3(figure_uniforms.model * vec4(in_normal, 0.0f));
-    out_to_camera = vec3(scene.lightning.view_position) - vec3(world_position);
+    out_world_position = vec3(world_position);
 }
