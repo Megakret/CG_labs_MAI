@@ -192,6 +192,7 @@ void ImGui_update() {
     ImGui::ColorEdit3("Ambient color", g_scene_lightning_config.ambient.data());
     ImGui::InputFloat("Ambient strength",
                       &g_scene_lightning_config.ambient_strength);
+    ImGui::ColorEdit3("Sunlight color", g_scene_lightning_config.sunlight_color.data());
     ImGui::InputFloat3("Sunlight direction",
                        g_scene_lightning_config.sunlight_direction.data());
     ImGui::InputFloat("Sunlight intensity", &g_scene_lightning_config.sunlight_intensity);
