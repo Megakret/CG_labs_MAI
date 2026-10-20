@@ -21,7 +21,7 @@ struct SceneLightning {
     vec3 sunlight_direction;
     float sunlight_intensity;
     vec3 sunlight_color;
-    float b;
+    int point_light_count;
 };
 layout(std140, set = 0, binding = 0) uniform SceneUniform {
     mat4 projection_view;
@@ -68,7 +68,7 @@ void main()
     vec3 N = normalize(in_normal);
     vec3 to_camera = normalize(scene.lightning.view_position - in_world_position);
     output_light += CalculateSunlight(N, to_camera);
-    for (uint i = 0u; i < point_lights.lights.length(); ++i) {
+    for (uint i = 0u; i < scene.lightning.point_light_count; ++i) {
         PointLight light = point_lights.lights[i];
         output_light += CalculatePointLight(N, to_camera, light);
     }

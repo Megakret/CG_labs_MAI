@@ -1,10 +1,10 @@
 #include "application.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <format>
-#include <imgui.h>
 #include <iostream>
 #include <memory>
 
@@ -14,6 +14,8 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/type_ptr.hpp"
+
+#include <imgui.h>
 #include <vulkan/vulkan_core.h>
 
 #include "../graphics_internal.hpp"
@@ -75,12 +77,12 @@ struct SceneBuffer {
   float view_projection_matrix[4][4];
   graphics::SceneLightning lightning;
 };
-const size_t POINT_LIGHT_COUNT = 2;
+const size_t MAX_POINT_LIGHT_COUNT = 100;
 const size_t POINT_LIGHT_BINDING = 1;
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
 std::unique_ptr<graphics::StorageBuffer<graphics::PointLight>>
     g_point_lights_buffer;
-std::array<graphics::PointLight, POINT_LIGHT_COUNT> g_point_lights;
+std::vector<graphics::PointLight> g_point_lights;
 graphics::SceneLightning g_scene_lightning_config;
 graphics::Camera g_camera;
 void SetStarterAnimation() {
@@ -125,7 +127,7 @@ bool initialize() {
           scene_set, SCENE_UNIFORM_BINDING);
   g_point_lights_buffer =
       std::make_unique<graphics::StorageBuffer<graphics::PointLight>>(
-          scene_set, POINT_LIGHT_COUNT, POINT_LIGHT_BINDING);
+          scene_set, MAX_POINT_LIGHT_COUNT, POINT_LIGHT_BINDING);
   scene_set.Update();
   g_scene_descriptor_set =
       std::make_unique<graphics::DescriptorSet>(std::move(scene_set));
@@ -141,10 +143,13 @@ bool initialize() {
                                       {10, 10, 10});
   }
   SetStarterAnimation();
+  g_point_lights.reserve(MAX_POINT_LIGHT_COUNT);
   init_scene();
   return true;
 }
 void init_scene() {
+  g_point_lights.emplace_back();
+  g_point_lights.emplace_back();
   auto &light1 = g_point_lights[0];
   light1.intensity = 0.7f;
   light1.light_color = {250.0 / 255.0, 125.0 / 255.0, 0.0};
@@ -172,8 +177,9 @@ void init_scene() {
                                                 179.0 / 255.0};
   gameobjects[1]->material.shininess = 3.0;
 
-  g_scene_lightning_config.sunlight_color = {23.0/255.0, 224.0/255.0, 130.0/255.0};
-  g_scene_lightning_config.sunlight_direction = {-1,1,0};
+  g_scene_lightning_config.sunlight_color = {23.0 / 255.0, 224.0 / 255.0,
+                                             130.0 / 255.0};
+  g_scene_lightning_config.sunlight_direction = {-1, 1, 0};
   g_scene_lightning_config.sunlight_intensity = 0.03;
 }
 void shutdown() {
@@ -244,6 +250,9 @@ void ImGui_update() {
     ImGui::InputFloat("Sunlight intensity",
                       &g_scene_lightning_config.sunlight_intensity);
     if (ImGui::CollapsingHeader("Point lights")) {
+      if (ImGui::Button("Add light")) {
+        g_point_lights.emplace_back();
+      }
       for (size_t i = 0; i < g_point_lights.size(); ++i) {
         graphics::PointLight &light = g_point_lights[i];
         if (ImGui::CollapsingHeader(std::format("Point light {}", i).c_str())) {
@@ -253,6 +262,11 @@ void ImGui_update() {
           ImGui::InputFloat3("Position", light.position.data());
           ImGui::InputFloat("Linear term", &light.linear_term);
           ImGui::InputFloat("Quadratic term", &light.quadratic_term);
+          if (ImGui::Button("Remove light")) {
+            g_point_lights[i] = graphics::PointLight{};
+            g_point_lights.erase(g_point_lights.begin() + i);
+            i = std::min(static_cast<int>(i) - 1, 0);
+          }
           ImGui::PopID();
         }
       }
@@ -450,9 +464,10 @@ void render(const graphics::internal::FrameData &fd) {
   memcpy(&(scene_ptr->lightning), &g_scene_lightning_config,
          sizeof(g_scene_lightning_config));
   scene_ptr->lightning.view_position = g_camera.position;
+  scene_ptr->lightning.point_light_count = g_point_lights.size();
   // Storage buffers
-  for (size_t i = 0; i < POINT_LIGHT_COUNT; i++) {
-    auto point_lights_buf = g_point_lights_buffer->GetSpan();
+  auto point_lights_buf = g_point_lights_buffer->GetSpan();
+  for (size_t i = 0; i < g_point_lights.size(); i++) {
     point_lights_buf[i] = g_point_lights[i];
   }
   for (GameobjectPtr gameobject : g_gameobject_manager->gameobjects) {
