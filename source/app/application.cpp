@@ -21,6 +21,7 @@
 #include "../graphics_internal.hpp"
 #include "animation.hpp"
 #include "gameobject.hpp"
+#include "glm/trigonometric.hpp"
 #include "graphics/camera.hpp"
 #include "graphics/descriptors.hpp"
 #include "graphics/figure.hpp"
@@ -78,11 +79,16 @@ struct SceneBuffer {
   graphics::SceneLightning lightning;
 };
 const size_t MAX_POINT_LIGHT_COUNT = 100;
+const size_t MAX_SPOTLIGHT_COUNT = 100;
 const size_t POINT_LIGHT_BINDING = 1;
+const size_t SPOTLIGHT_BINDING = 2;
 std::unique_ptr<graphics::UniformBuffer<SceneBuffer>> g_scene_uniform_buffer;
 std::unique_ptr<graphics::StorageBuffer<graphics::PointLight>>
     g_point_lights_buffer;
 std::vector<graphics::PointLight> g_point_lights;
+std::unique_ptr<graphics::StorageBuffer<graphics::Spotlight>>
+    g_spotlights_buffer;
+std::vector<graphics::Spotlight> g_spotlights;
 graphics::SceneLightning g_scene_lightning_config;
 graphics::Camera g_camera;
 void SetStarterAnimation() {
@@ -128,6 +134,9 @@ bool initialize() {
   g_point_lights_buffer =
       std::make_unique<graphics::StorageBuffer<graphics::PointLight>>(
           scene_set, MAX_POINT_LIGHT_COUNT, POINT_LIGHT_BINDING);
+  g_spotlights_buffer =
+      std::make_unique<graphics::StorageBuffer<graphics::Spotlight>>(
+          scene_set, MAX_SPOTLIGHT_COUNT, SPOTLIGHT_BINDING);
   scene_set.Update();
   g_scene_descriptor_set =
       std::make_unique<graphics::DescriptorSet>(std::move(scene_set));
@@ -144,21 +153,23 @@ bool initialize() {
   }
   SetStarterAnimation();
   g_point_lights.reserve(MAX_POINT_LIGHT_COUNT);
+  g_spotlights.reserve(MAX_SPOTLIGHT_COUNT);
   init_scene();
   return true;
 }
 void init_scene() {
   g_point_lights.emplace_back();
   g_point_lights.emplace_back();
+  g_spotlights.emplace_back();
   auto &light1 = g_point_lights[0];
-  light1.intensity = 0.7f;
+  light1.intensity = 0.5f;
   light1.light_color = {250.0 / 255.0, 125.0 / 255.0, 0.0};
   light1.linear_term = 0.22;
   light1.quadratic_term = 0.2;
   light1.position = {-2.45, -6.56, 6.23};
 
   auto &light2 = g_point_lights[1];
-  light2.intensity = 0.7f;
+  light2.intensity = 0.5f;
   light2.light_color = {250.0 / 255.0, 125.0 / 255.0, 0.0};
   light2.linear_term = 0.22;
   light2.quadratic_term = 0.2;
@@ -181,6 +192,20 @@ void init_scene() {
                                              130.0 / 255.0};
   g_scene_lightning_config.sunlight_direction = {-1, 1, 0};
   g_scene_lightning_config.sunlight_intensity = 0.03;
+  g_spotlights[0] = {
+      .light_color = {0, 1, 210.0/255.0},
+      .intensity = 2,
+      .position = {-1.64, -4.61, 0},
+      .inner_angle = 40,
+      .spot_direction = {-1, 1, 0},
+      .outer_angle = 50,
+  };
+  g_scene_lightning_config.flashlight = graphics::Spotlight{
+      .light_color = {244.0/255.0, 231.0/255.0, 19.0/255.0},
+      .intensity = 7.0,
+      .inner_angle = 20,
+      .outer_angle = 30,
+  };
 }
 void shutdown() {
   auto &context = graphics::internal::context;
@@ -191,6 +216,7 @@ void shutdown() {
   g_gameobject_manager = nullptr;
   g_scene_uniform_buffer = nullptr;
   g_point_lights_buffer = nullptr;
+  g_spotlights_buffer = nullptr;
 }
 double prev_time = 0;
 const int PERSPECTIVE_MATRIX_ID = 0;
@@ -206,6 +232,7 @@ float g_camera_speed = 10.0f;
 const float MAX_Y_ROTATION = 80.0f;
 }; // namespace camera_controls
 glm::mat4 GetProjectionMatrix() {
+
   auto &context = graphics::internal::context;
   glm::mat4 projection_matrix(1.0f);
   if (g_matrix_to_use == PERSPECTIVE_MATRIX_ID) {
@@ -222,6 +249,54 @@ glm::mat4 GetProjectionMatrix() {
                                      half_height, 0.1f, 100.0f);
   }
   return projection_matrix;
+}
+void SpotlightGui() {
+  if (ImGui::Button("Add light")) {
+    g_spotlights.emplace_back();
+  }
+  for (size_t i = 0; i < g_spotlights.size(); ++i) {
+    graphics::Spotlight &light = g_spotlights[i];
+    if (ImGui::CollapsingHeader(std::format("Spotlight {}", i).c_str())) {
+      ImGui::PushID(i);
+      ImGui::ColorEdit3("Light color", light.light_color.data());
+      ImGui::InputFloat("Intensity", &light.intensity);
+      ImGui::InputFloat3("Position", light.position.data());
+      ImGui::InputFloat3("Direction", light.spot_direction.data());
+      ImGui::InputFloat("Inner angle", &light.inner_angle);
+      ImGui::InputFloat("Outer angle", &light.outer_angle);
+      ImGui::InputFloat("Linear term", &light.linear_term);
+      ImGui::InputFloat("Quadratic term", &light.quadratic_term);
+      if (ImGui::Button("Remove light")) {
+        g_spotlights[i] = graphics::Spotlight{};
+        g_spotlights.erase(g_spotlights.begin() + i);
+        i = std::min(static_cast<int>(i) - 1, 0);
+      }
+      ImGui::PopID();
+    }
+  }
+}
+void PointLightGui() {
+
+  if (ImGui::Button("Add light")) {
+    g_point_lights.emplace_back();
+  }
+  for (size_t i = 0; i < g_point_lights.size(); ++i) {
+    graphics::PointLight &light = g_point_lights[i];
+    if (ImGui::CollapsingHeader(std::format("Point light {}", i).c_str())) {
+      ImGui::PushID(i);
+      ImGui::ColorEdit3("Light color", light.light_color.data());
+      ImGui::InputFloat("Intensity", &light.intensity);
+      ImGui::InputFloat3("Position", light.position.data());
+      ImGui::InputFloat("Linear term", &light.linear_term);
+      ImGui::InputFloat("Quadratic term", &light.quadratic_term);
+      if (ImGui::Button("Remove light")) {
+        g_point_lights[i] = graphics::PointLight{};
+        g_point_lights.erase(g_point_lights.begin() + i);
+        i = std::min(static_cast<int>(i) - 1, 0);
+      }
+      ImGui::PopID();
+    }
+  }
 }
 void ImGui_update() {
   ImGui::Begin("Scene settings");
@@ -243,33 +318,28 @@ void ImGui_update() {
     ImGui::ColorEdit3("Ambient color", g_scene_lightning_config.ambient.data());
     ImGui::InputFloat("Ambient strength",
                       &g_scene_lightning_config.ambient_strength);
-    ImGui::ColorEdit3("Sunlight color",
-                      g_scene_lightning_config.sunlight_color.data());
-    ImGui::InputFloat3("Sunlight direction",
-                       g_scene_lightning_config.sunlight_direction.data());
-    ImGui::InputFloat("Sunlight intensity",
-                      &g_scene_lightning_config.sunlight_intensity);
+    if (ImGui::CollapsingHeader("Flashlight")) {
+      auto &light = g_scene_lightning_config.flashlight;
+      ImGui::ColorEdit3("Light color", light.light_color.data());
+      ImGui::InputFloat("Intensity", &light.intensity);
+      ImGui::InputFloat("Inner angle", &light.inner_angle);
+      ImGui::InputFloat("Outer angle", &light.outer_angle);
+      ImGui::InputFloat("Linear term", &light.linear_term);
+      ImGui::InputFloat("Quadratic term", &light.quadratic_term);
+    }
+    if (ImGui::CollapsingHeader("Sunlight")) {
+      ImGui::ColorEdit3("Sunlight color",
+                        g_scene_lightning_config.sunlight_color.data());
+      ImGui::InputFloat3("Sunlight direction",
+                         g_scene_lightning_config.sunlight_direction.data());
+      ImGui::InputFloat("Sunlight intensity",
+                        &g_scene_lightning_config.sunlight_intensity);
+    }
     if (ImGui::CollapsingHeader("Point lights")) {
-      if (ImGui::Button("Add light")) {
-        g_point_lights.emplace_back();
-      }
-      for (size_t i = 0; i < g_point_lights.size(); ++i) {
-        graphics::PointLight &light = g_point_lights[i];
-        if (ImGui::CollapsingHeader(std::format("Point light {}", i).c_str())) {
-          ImGui::PushID(i);
-          ImGui::ColorEdit3("Light color", light.light_color.data());
-          ImGui::InputFloat("Intensity", &light.intensity);
-          ImGui::InputFloat3("Position", light.position.data());
-          ImGui::InputFloat("Linear term", &light.linear_term);
-          ImGui::InputFloat("Quadratic term", &light.quadratic_term);
-          if (ImGui::Button("Remove light")) {
-            g_point_lights[i] = graphics::PointLight{};
-            g_point_lights.erase(g_point_lights.begin() + i);
-            i = std::min(static_cast<int>(i) - 1, 0);
-          }
-          ImGui::PopID();
-        }
-      }
+      PointLightGui();
+    }
+    if (ImGui::CollapsingHeader("Spotlights")) {
+      SpotlightGui();
     }
   }
   ImGui::End();
@@ -402,6 +472,12 @@ void update([[maybe_unused]] double time, GLFWwindow *window) {
                      static_cast<float>(delta_time);
   memcpy(g_camera.position.data(), glm::value_ptr(camera_position),
          sizeof(g_camera.position));
+  // Update flashlight
+  graphics::Spotlight &flashlight = g_scene_lightning_config.flashlight;
+  flashlight.position = g_camera.position;
+  memcpy(flashlight.spot_direction.data(),
+         glm::value_ptr(g_camera.GetLookDirection()),
+         sizeof(flashlight.spot_direction));
   // Figure animation
   auto &gameobjects = g_gameobject_manager->gameobjects;
   for (size_t i = 0; i < gameobjects.size(); i++) {
@@ -465,10 +541,24 @@ void render(const graphics::internal::FrameData &fd) {
          sizeof(g_scene_lightning_config));
   scene_ptr->lightning.view_position = g_camera.position;
   scene_ptr->lightning.point_light_count = g_point_lights.size();
+  scene_ptr->lightning.spotlight_count = g_spotlights.size();
+  auto &flashlight = scene_ptr->lightning.flashlight;
+  flashlight.inner_angle =
+      glm::cos(glm::radians(g_scene_lightning_config.flashlight.inner_angle));
+  flashlight.outer_angle =
+      glm::cos(glm::radians(g_scene_lightning_config.flashlight.outer_angle));
   // Storage buffers
   auto point_lights_buf = g_point_lights_buffer->GetSpan();
   for (size_t i = 0; i < g_point_lights.size(); i++) {
     point_lights_buf[i] = g_point_lights[i];
+  }
+  auto spotlight_buf = g_spotlights_buffer->GetSpan();
+  for (size_t i = 0; i < g_spotlights.size(); i++) {
+    spotlight_buf[i] = g_spotlights[i];
+    spotlight_buf[i].inner_angle =
+        glm::cos(glm::radians(g_spotlights[i].inner_angle));
+    spotlight_buf[i].outer_angle =
+        glm::cos(glm::radians(g_spotlights[i].outer_angle));
   }
   for (GameobjectPtr gameobject : g_gameobject_manager->gameobjects) {
     auto &figure = gameobject->figure;
