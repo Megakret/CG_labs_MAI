@@ -7,6 +7,7 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
 #include <vulkan/vulkan_core.h>
@@ -141,5 +142,28 @@ Figure &Figure::operator=(Figure &&other) noexcept {
     new (this) Figure(std::move(other));
   }
   return *this;
+}
+void GenerateNormals(Figure::Shape &shape) {
+  std::vector<glm::vec3> positions(shape.vertices.size());
+  std::vector<glm::vec3> normals(shape.vertices.size(), glm::vec3(0.0f));
+  for (size_t i = 0; i < shape.vertices.size(); ++i) {
+    positions[i] = glm::make_vec3(shape.vertices[i].position.data());
+  }
+  for (size_t triag = 0; triag < shape.indices.size() / 3; ++triag) {
+    size_t idx1 = shape.indices[triag * 3 + 0];
+    size_t idx2 = shape.indices[triag * 3 + 1];
+    size_t idx3 = shape.indices[triag * 3 + 2];
+    glm::vec3 normal_to_add = glm::cross(positions[idx2] - positions[idx1],
+                                         positions[idx3] - positions[idx1]);
+    normals[idx1] += normal_to_add;
+    normals[idx2] += normal_to_add;
+    normals[idx3] += normal_to_add;
+  }
+  for (size_t i = 0; i < normals.size(); ++i) {
+    auto &normal = normals[i];
+    normal = glm::normalize(normal);
+    memcpy(shape.vertices[i].normal.data(), glm::value_ptr(normal),
+           sizeof(shape.vertices[i].normal));
+  }
 }
 }; // namespace graphics

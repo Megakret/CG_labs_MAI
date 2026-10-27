@@ -59,4 +59,5 @@ private:
   UniformBuffer<UniformData> uniform_buffer;
   size_t index_count = 0;
 };
+void GenerateNormals(Figure::Shape& shape);
 } // namespace graphics

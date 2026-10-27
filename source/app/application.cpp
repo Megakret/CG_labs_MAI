@@ -36,39 +36,44 @@ namespace application {
 const uint32_t SCENE_SET_ID = 0;
 const uint32_t SCENE_UNIFORM_BINDING = 0;
 const std::filesystem::path TEST_OBJ_FILENAME = "models/viking_room.obj";
-graphics::Figure::Shape OCTAHEDRON_SHAPE =
-    {.vertices =
-         std::vector<graphics::Vertex>{
-             {{1.0f, 0.0f, 0.0f},
-              {1.0f, 0.0f, 0.0f},
-              {1.0f, 0.0f, 0.0f}}, // 0: +X
-             {{-1.0f, 0.0f, 0.0f},
-              {0.0f, 1.0f, 1.0f},
-              {-1.0f, 0.0f, 0.0f}}, // 1: -X
-             {{0.0f, 1.0f, 0.0f},
-              {0.0f, 1.0f, 0.0f},
-              {0.0f, 1.0f, 0.0f}}, // 2: +Y
-             {{0.0f, -1.0f, 0.0f},
-              {1.0f, 0.0f, 1.0f},
-              {0.0f, -1.0f, 0.0f}}, // 3: -Y
-             {{0.0f, 0.0f, 1.0f},
-              {0.0f, 0.0f, 1.0f},
-              {0.0f, 0.0f, 1.0f}}, // 4: +Z
-             {{0.0f, 0.0f, -1.0f},
-              {1.0f, 1.0f, 0.0f},
-              {0.0f, 0.0f, -1.0f}}, // 5: -Z
-         },
-     .indices =
-         std::vector<uint16_t>{
-             0, 2, 4, // +X +Y +Z
-             0, 4, 3, // +X -Y +Z
-             1, 3, 4, // -X -Y +Z
-             1, 4, 2, // -X +Y +Z
-             1, 5, 3, // -X -Y -Z
-             0, 3, 5, // +X -Y -Z
-             1, 2, 5, // -X +Y -Z
-             0, 5, 2, // +X +Y -Z
-         }
+const graphics::Figure::Shape OCTAHEDRON_SHAPE = {.vertices =
+                                                std::vector<graphics::Vertex>{
+                                                    {
+                                                        {1.0f, 0.0f, 0.0f},
+                                                        {1.0f, 0.0f, 0.0f},
+                                                    }, // 0: +X
+                                                    {
+                                                        {-1.0f, 0.0f, 0.0f},
+                                                        {0.0f, 1.0f, 1.0f},
+                                                    }, // 1: -X
+                                                    {
+                                                        {0.0f, 1.0f, 0.0f},
+                                                        {0.0f, 1.0f, 0.0f},
+                                                    }, // 2: +Y
+                                                    {
+                                                        {0.0f, -1.0f, 0.0f},
+                                                        {1.0f, 0.0f, 1.0f},
+                                                    }, // 3: -Y
+                                                    {
+                                                        {0.0f, 0.0f, 1.0f},
+                                                        {0.0f, 0.0f, 1.0f},
+                                                    }, // 4: +Z
+                                                    {
+                                                        {0.0f, 0.0f, -1.0f},
+                                                        {1.0f, 1.0f, 0.0f},
+                                                    }, // 5: -Z
+                                                },
+                                            .indices =
+                                                std::vector<uint16_t>{
+                                                    0, 2, 4, // +X +Y +Z
+                                                    0, 4, 3, // +X -Y +Z
+                                                    1, 3, 4, // -X -Y +Z
+                                                    1, 4, 2, // -X +Y +Z
+                                                    1, 5, 3, // -X -Y -Z
+                                                    0, 3, 5, // +X -Y -Z
+                                                    1, 2, 5, // -X +Y -Z
+                                                    0, 5, 2, // +X +Y -Z
+                                                }
 
 };
 std::unique_ptr<graphics::DescriptorPool> g_descriptor_pool;
@@ -144,7 +149,9 @@ bool initialize() {
       *g_descriptor_pool, graphics::g_figure_descriptor_layout);
   // Models
   g_gameobject_manager->gameobjects.reserve(GAMEOBJECT_COUNT);
-  g_gameobject_manager->Instantiate(OCTAHEDRON_SHAPE, {0, -5, 0});
+  graphics::Figure::Shape octahedron = OCTAHEDRON_SHAPE;
+  graphics::GenerateNormals(octahedron);
+  g_gameobject_manager->Instantiate(octahedron, {0, -5, 0});
   // Loading test model
   auto shapes = loaders::load_models_obj(TEST_OBJ_FILENAME);
   for (auto &shape : shapes) {
@@ -193,7 +200,7 @@ void init_scene() {
   g_scene_lightning_config.sunlight_direction = {-1, 1, 0};
   g_scene_lightning_config.sunlight_intensity = 0.03;
   g_spotlights[0] = {
-      .light_color = {0, 1, 210.0/255.0},
+      .light_color = {0, 1, 210.0 / 255.0},
       .intensity = 2,
       .position = {-1.64, -4.61, 0},
       .inner_angle = 40,
@@ -201,7 +208,7 @@ void init_scene() {
       .outer_angle = 50,
   };
   g_scene_lightning_config.flashlight = graphics::Spotlight{
-      .light_color = {244.0/255.0, 231.0/255.0, 19.0/255.0},
+      .light_color = {244.0 / 255.0, 231.0 / 255.0, 19.0 / 255.0},
       .intensity = 7.0,
       .inner_angle = 20,
       .outer_angle = 30,
