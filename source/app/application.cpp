@@ -36,44 +36,45 @@ namespace application {
 const uint32_t SCENE_SET_ID = 0;
 const uint32_t SCENE_UNIFORM_BINDING = 0;
 const std::filesystem::path TEST_OBJ_FILENAME = "models/viking_room.obj";
-const graphics::Figure::Shape OCTAHEDRON_SHAPE = {.vertices =
-                                                std::vector<graphics::Vertex>{
-                                                    {
-                                                        {1.0f, 0.0f, 0.0f},
-                                                        {1.0f, 0.0f, 0.0f},
-                                                    }, // 0: +X
-                                                    {
-                                                        {-1.0f, 0.0f, 0.0f},
-                                                        {0.0f, 1.0f, 1.0f},
-                                                    }, // 1: -X
-                                                    {
-                                                        {0.0f, 1.0f, 0.0f},
-                                                        {0.0f, 1.0f, 0.0f},
-                                                    }, // 2: +Y
-                                                    {
-                                                        {0.0f, -1.0f, 0.0f},
-                                                        {1.0f, 0.0f, 1.0f},
-                                                    }, // 3: -Y
-                                                    {
-                                                        {0.0f, 0.0f, 1.0f},
-                                                        {0.0f, 0.0f, 1.0f},
-                                                    }, // 4: +Z
-                                                    {
-                                                        {0.0f, 0.0f, -1.0f},
-                                                        {1.0f, 1.0f, 0.0f},
-                                                    }, // 5: -Z
-                                                },
-                                            .indices =
-                                                std::vector<uint16_t>{
-                                                    0, 2, 4, // +X +Y +Z
-                                                    0, 4, 3, // +X -Y +Z
-                                                    1, 3, 4, // -X -Y +Z
-                                                    1, 4, 2, // -X +Y +Z
-                                                    1, 5, 3, // -X -Y -Z
-                                                    0, 3, 5, // +X -Y -Z
-                                                    1, 2, 5, // -X +Y -Z
-                                                    0, 5, 2, // +X +Y -Z
-                                                }
+const graphics::Figure::Shape OCTAHEDRON_SHAPE = {
+    .vertices =
+        std::vector<graphics::Vertex>{
+            {
+                {1.0f, 0.0f, 0.0f},
+                {1.0f, 0.0f, 0.0f},
+            }, // 0: +X
+            {
+                {-1.0f, 0.0f, 0.0f},
+                {0.0f, 1.0f, 1.0f},
+            }, // 1: -X
+            {
+                {0.0f, 1.0f, 0.0f},
+                {0.0f, 1.0f, 0.0f},
+            }, // 2: +Y
+            {
+                {0.0f, -1.0f, 0.0f},
+                {1.0f, 0.0f, 1.0f},
+            }, // 3: -Y
+            {
+                {0.0f, 0.0f, 1.0f},
+                {0.0f, 0.0f, 1.0f},
+            }, // 4: +Z
+            {
+                {0.0f, 0.0f, -1.0f},
+                {1.0f, 1.0f, 0.0f},
+            }, // 5: -Z
+        },
+    .indices =
+        std::vector<uint16_t>{
+            0, 2, 4, // +X +Y +Z
+            0, 4, 3, // +X -Y +Z
+            1, 3, 4, // -X -Y +Z
+            1, 4, 2, // -X +Y +Z
+            1, 5, 3, // -X -Y -Z
+            0, 3, 5, // +X -Y -Z
+            1, 2, 5, // -X +Y -Z
+            0, 5, 2, // +X +Y -Z
+        }
 
 };
 std::unique_ptr<graphics::DescriptorPool> g_descriptor_pool;
@@ -343,10 +344,14 @@ void ImGui_update() {
                         &g_scene_lightning_config.sunlight_intensity);
     }
     if (ImGui::CollapsingHeader("Point lights")) {
+      ImGui::PushID(0);
       PointLightGui();
+      ImGui::PopID();
     }
     if (ImGui::CollapsingHeader("Spotlights")) {
+      ImGui::PushID(1);
       SpotlightGui();
+      ImGui::PopID();
     }
   }
   ImGui::End();
